@@ -1,0 +1,76 @@
+# Pre-commit hooks for Price Stradamus
+# See https://pre-commit.com for more information
+
+repos:
+  # Ruff - Fast Python linter (replaces flake8, isort, and more)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.2.0
+    hooks:
+      # Run linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      # Run formatter
+      - id: ruff-format
+
+  # Basic checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # Trim trailing whitespace
+      - id: trailing-whitespace
+        exclude: ^tests/test_data/
+
+      # Ensure files end with newline
+      - id: end-of-file-fixer
+        exclude: ^tests/test_data/
+
+      # Check YAML syntax
+      - id: check-yaml
+        args: [--safe]
+
+      # Check TOML syntax
+      - id: check-toml
+
+      # Check for large files (>500KB)
+      - id: check-added-large-files
+        args: [--maxkb=500]
+
+      # Check for merge conflicts
+      - id: check-merge-conflict
+
+      # Check for debug statements
+      - id: debug-statements
+
+      # Check JSON syntax
+      - id: check-json
+
+      # Check for files that would conflict on case-insensitive filesystems
+      - id: check-case-conflict
+
+  # Type checking with Pyright
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.350
+    hooks:
+      - id: pyright
+        additional_dependencies:
+          - pandas
+          - numpy
+          - torch
+          - darts
+          - sqlalchemy
+          - aiohttp
+
+# Configuration
+default_language_version:
+  python: python3.13
+
+# Skip some hooks for specific files
+exclude: |
+  (?x)^(
+    alembic/versions/.*|
+    \.git/.*|
+    \.mypy_cache/.*|
+    \.pytest_cache/.*|
+    \.ruff_cache/.*|
+    __pycache__/.*
+  )$

@@ -1,0 +1,147 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "price-stradamus"
+version = "0.1.0"
+description = "Professional Bitcoin price prediction system using multiple ML models"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [
+    { name = "Price Stradamus Team" }
+]
+keywords = ["bitcoin", "prediction", "machine-learning", "time-series", "trading"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    # Core ML Framework
+    "darts>=0.28.0",
+    "torch>=2.2.0",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+
+    # Data & API
+    "aiohttp>=3.9.0",
+    "asyncpg>=0.29.0",
+    "sqlalchemy[asyncio]>=2.0.0",
+    "alembic>=1.13.0",
+    "pandas-ta>=0.3.14b",
+
+    # ML Models
+    "scikit-learn>=1.4.0",
+    "xgboost>=2.0.0",
+    "optuna>=3.5.0",
+    "prophet>=1.1.5",
+    "statsforecast>=1.7.0",
+
+    # Configuration & Validation
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.2.0",
+    "python-dotenv>=1.0.0",
+
+    # CLI & Logging
+    "typer>=0.9.0",
+    "rich>=13.7.0",
+    "loguru>=0.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-mock>=3.12.0",
+    "ruff>=0.2.0",
+    "pyright>=1.1.350",
+    "pre-commit>=3.6.0",
+    "ipykernel>=6.29.0",
+    "ipywidgets>=8.1.0",
+]
+
+automl = [
+    "auto-sklearn>=0.15.0; sys_platform != 'win32'",  # Not supported on Windows
+]
+
+[project.scripts]
+price-stradamus = "price_stradamus.cli.commands:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/price_stradamus"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "ARG", # flake8-unused-arguments
+    "SIM", # flake8-simplify
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # do not perform function calls in argument defaults
+    "B905",  # zip without explicit strict parameter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # Allow unused imports in __init__.py
+"tests/**/*.py" = ["ARG", "S101"]  # Allow unused args and asserts in tests
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+[tool.pyright]
+include = ["src"]
+exclude = ["**/__pycache__", ".venv"]
+typeCheckingMode = "strict"
+reportMissingImports = true
+reportMissingTypeStubs = false
+pythonVersion = "3.13"
+pythonPlatform = "All"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--verbose",
+    "--cov=src/price_stradamus",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-fail-under=80",
+]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*", "**/__pycache__/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+]

@@ -1,0 +1,63 @@
+{
+  "include": [
+    "src",
+    "tests",
+    "scripts"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/.pytest_cache",
+    "**/.ruff_cache",
+    "**/node_modules",
+    "**/.venv",
+    ".venv"
+  ],
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.13",
+  "pythonPlatform": "Windows",
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": true,
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+  "reportUnknownMemberType": false,
+  "reportUnknownParameterType": false,
+  "reportUnknownVariableType": false,
+  "reportUnknownArgumentType": false,
+  "reportGeneralTypeIssues": true,
+  "reportOptionalMemberAccess": true,
+  "reportOptionalSubscript": true,
+  "reportPrivateImportUsage": true,
+  "reportArgumentType": "warning",
+  "reportCallIssue": "warning",
+  "executionEnvironments": [
+    {
+      "root": "src",
+      "pythonVersion": "3.13",
+      "pythonPlatform": "Windows",
+      "extraPaths": [
+        "src"
+      ]
+    },
+    {
+      "root": "tests",
+      "pythonVersion": "3.13",
+      "pythonPlatform": "Windows",
+      "extraPaths": [
+        "src"
+      ],
+      "reportAttributeAccessIssue": false,
+      "reportArgumentType": false
+    },
+    {
+      "root": "scripts",
+      "pythonVersion": "3.13",
+      "pythonPlatform": "Windows",
+      "extraPaths": [
+        "src"
+      ],
+      "reportAttributeAccessIssue": false,
+      "reportArgumentType": false
+    }
+  ]
+}

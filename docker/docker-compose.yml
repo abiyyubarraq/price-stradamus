@@ -1,0 +1,72 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: price-stradamus-db
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-your_secure_password_here}
+      POSTGRES_DB: ${DB_NAME:-price_stradamus}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - price-stradamus-network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: price-stradamus-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@pricestradamus.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - price-stradamus-network
+    profiles:
+      - admin
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: price-stradamus-app
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@postgres:5432/${DB_NAME:-price_stradamus}
+      ENV: ${ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    volumes:
+      - ../src:/app/src
+      - ../models:/app/models
+      - ../logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - price-stradamus-network
+    profiles:
+      - app
+
+volumes:
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  price-stradamus-network:
+    driver: bridge
