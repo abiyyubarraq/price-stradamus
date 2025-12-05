@@ -356,8 +356,15 @@ Train Window | Test | Train Window    | Test |
 
 ### 4. Application Layer
 
-#### CLI Interface (`cli/commands.py`)
+#### CLI Interface (`cli/`)
 **Responsibility**: User-facing command-line interface
+
+**Structure**: Modular command organization
+- `model_commands.py`: Model operations (train, predict, evaluate, compare)
+- `data_commands.py`: Data operations (fetch from Binance)
+- `info_commands.py`: Information commands (list-models, info)
+- `__init__.py`: CLI app initialization and command registration
+- `__main__.py`: Entry point for `python -m price_stradamus.cli`
 
 **Commands**:
 - `fetch`: Download data from Binance
@@ -365,7 +372,8 @@ Train Window | Test | Train Window    | Test |
 - `predict`: Make predictions
 - `evaluate`: Run backtesting
 - `compare`: Compare multiple models
-- `automl`: Run automated model selection
+- `list-models`: Show available models
+- `info`: System configuration
 
 **Implementation**: Typer framework with Rich for formatting
 

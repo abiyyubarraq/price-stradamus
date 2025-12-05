@@ -175,7 +175,12 @@
 - [x] Progress indicators
 - [x] Error handling with friendly messages
 - [x] Async operation support
-- **File**: `src/price_stradamus/cli/commands.py` (344 lines)
+- **Files**: Modular CLI structure (898 lines total)
+  - `model_commands.py` (632 lines) - train, predict, evaluate, compare
+  - `data_commands.py` (113 lines) - fetch data from Binance
+  - `info_commands.py` (108 lines) - list-models, info
+  - `__init__.py` (37 lines) - CLI app initialization
+  - `__main__.py` (8 lines) - Entry point
 
 ### 5. Database Schema (100%)
 

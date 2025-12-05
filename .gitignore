@@ -74,7 +74,7 @@ dmypy.json
 postgresql_data/
 
 # Models & Data
-models/
+modelsResults/
 *.pth
 *.pkl
 *.joblib
