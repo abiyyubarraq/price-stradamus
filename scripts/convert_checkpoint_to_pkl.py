@@ -52,7 +52,9 @@ def find_checkpoint_file(checkpoint_dir: Path, checkpoint_type: str = "best") ->
             checkpoint_file = sorted(best_ckpts)[0]
         else:
             logger.warning("No 'best' checkpoint found, using 'last' instead")
-            checkpoint_file = next((f for f in ckpt_files if "last" in f.name.lower()), ckpt_files[0])
+            checkpoint_file = next(
+                (f for f in ckpt_files if "last" in f.name.lower()), ckpt_files[0]
+            )
     else:  # last
         last_ckpts = [f for f in ckpt_files if "last" in f.name.lower()]
         checkpoint_file = last_ckpts[0] if last_ckpts else ckpt_files[-1]
@@ -100,9 +102,11 @@ def convert_checkpoint_to_pkl(
         model.save(str(output_path))
 
         logger.info(f"✓ Successfully converted checkpoint to {output_path}")
-        logger.info(f"You can now use this model with:")
+        logger.info("You can now use this model with:")
         logger.info(f"  python -m price_stradamus.cli predict --model {output_path}")
-        logger.info(f"  python -m price_stradamus.cli evaluate --model-path {output_path}")
+        logger.info(
+            f"  python -m price_stradamus.cli evaluate --model-path {output_path}"
+        )
 
     except Exception as e:
         logger.error(f"Failed to convert checkpoint: {e}")
@@ -123,9 +127,13 @@ def convert_checkpoint_to_pkl(
                 model.save(str(output_path))
 
                 logger.info(f"✓ Successfully converted checkpoint to {output_path}")
-                logger.info(f"You can now use this model with:")
-                logger.info(f"  python -m price_stradamus.cli predict --model {output_path}")
-                logger.info(f"  python -m price_stradamus.cli evaluate --model-path {output_path}")
+                logger.info("You can now use this model with:")
+                logger.info(
+                    f"  python -m price_stradamus.cli predict --model {output_path}"
+                )
+                logger.info(
+                    f"  python -m price_stradamus.cli evaluate --model-path {output_path}"
+                )
             else:
                 raise FileNotFoundError(f"Could not find {pth_file}")
 
@@ -142,15 +150,15 @@ def main():
     parser.add_argument(
         "--checkpoint-dir",
         type=Path,
-        default=Path("models/checkpoints/nbeats"),
-        help="Directory containing the model checkpoints (default: models/checkpoints/nbeats)",
+        default=Path("modelsResults/checkpoints/nbeats"),
+        help="Directory containing the model checkpoints (default: modelsResults/checkpoints/nbeats)",
     )
     parser.add_argument(
         "--output",
         "-o",
         type=Path,
-        default=Path("models/nbeats_model.pkl"),
-        help="Output path for the .pkl file (default: models/nbeats_model.pkl)",
+        default=Path("modelsResults/nbeats_model.pkl"),
+        help="Output path for the .pkl file (default: modelsResults/nbeats_model.pkl)",
     )
     parser.add_argument(
         "--checkpoint",
@@ -165,7 +173,9 @@ def main():
     # Validate checkpoint directory exists
     if not args.checkpoint_dir.exists():
         logger.error(f"Checkpoint directory not found: {args.checkpoint_dir}")
-        logger.error("Please provide a valid checkpoint directory with --checkpoint-dir")
+        logger.error(
+            "Please provide a valid checkpoint directory with --checkpoint-dir"
+        )
         return 1
 
     # Convert
@@ -176,7 +186,7 @@ def main():
             checkpoint_type=args.checkpoint,
         )
         return 0
-    except Exception as e:
+    except Exception:
         logger.exception("Conversion failed")
         return 1
 

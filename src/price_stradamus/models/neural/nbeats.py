@@ -168,7 +168,7 @@ class NBEATSModel(BaseModel):
             random_state=self.random_state,
             force_reset=True,
             save_checkpoints=True,  # Enable automatic checkpointing every epoch
-            work_dir="models/checkpoints",  # Save checkpoints here
+            work_dir="modelsResults/checkpoints",  # Save checkpoints here
         )
 
         # Train model
