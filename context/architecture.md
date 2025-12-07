@@ -6,58 +6,88 @@ Price Stradamus follows a layered architecture with clear separation of concerns
 
 ## System Architecture Diagram
 
-```mermaid
-graph TB
-    subgraph "External Services"
-        A[Binance API]
-    end
-
-    subgraph "Data Layer"
-        B[Data Fetcher<br/>aiohttp client]
-        C[(PostgreSQL<br/>Time Series Data)]
-        D[Preprocessor<br/>Cleaning & Validation]
-        E[Feature Engine<br/>Technical Indicators]
-    end
-
-    subgraph "Model Layer"
-        F1[Neural Models<br/>N-BEATS, LSTM, TCN, TFT]
-        F2[Classical Models<br/>ARIMA, Prophet]
-        F3[ML Models<br/>XGBoost, RF, SVM]
-        F4[AutoML<br/>auto-sklearn]
-        G[Base Model Interface]
-    end
-
-    subgraph "Evaluation Layer"
-        H[Metrics Calculator<br/>MAE, RMSE, MAPE]
-        I[Backtester<br/>Walk-Forward Validation]
-    end
-
-    subgraph "Application Layer"
-        J[CLI Interface<br/>Typer]
-        K[Configuration<br/>Pydantic Settings]
-        L[Logger<br/>Loguru]
-    end
-
-    A -->|REST API| B
-    B -->|Store Raw Data| C
-    C -->|Load Data| D
-    D -->|Clean Data| E
-    E -->|Features| G
-    G -->|Interface| F1
-    G -->|Interface| F2
-    G -->|Interface| F3
-    G -->|Interface| F4
-    F1 -->|Predictions| H
-    F2 -->|Predictions| H
-    F3 -->|Predictions| H
-    F4 -->|Predictions| H
-    H -->|Metrics| I
-    I -->|Results| C
-    J -->|Commands| B
-    J -->|Commands| G
-    J -->|Commands| I
-    K -->|Config| J
-    L -->|Logs| J
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           EXTERNAL SERVICES                                  │
+│                                                                              │
+│                          ┌─────────────────┐                                │
+│                          │   Binance API   │                                │
+│                          └────────┬────────┘                                │
+│                                   │ REST API                                 │
+└───────────────────────────────────┼──────────────────────────────────────────┘
+                                    │
+┌───────────────────────────────────▼──────────────────────────────────────────┐
+│                              DATA LAYER                                      │
+│                                                                              │
+│   ┌──────────────────┐     ┌──────────────────┐     ┌──────────────────┐   │
+│   │  Data Fetcher    │────▶│   PostgreSQL     │────▶│  Preprocessor    │   │
+│   │ (aiohttp client) │     │(Time Series Data)│     │  (Cleaning &     │   │
+│   └──────────────────┘     └──────────────────┘     │   Validation)    │   │
+│                              ▲     │                 └────────┬─────────┘   │
+│                              │     │                          │              │
+│                              │     │ Load Data                │ Clean Data   │
+│                              │     │                          │              │
+│                              │     │                 ┌────────▼─────────┐   │
+│                              │     │                 │ Feature Engine   │   │
+│                              │     │                 │   (Technical     │   │
+│                              │     │                 │   Indicators)    │   │
+│                              │     │                 └────────┬─────────┘   │
+└──────────────────────────────┼─────┼──────────────────────────┼──────────────┘
+                               │     │                          │ Features
+┌──────────────────────────────┼─────┼──────────────────────────▼──────────────┐
+│                              │     │         MODEL LAYER                      │
+│                              │     │                                          │
+│                              │     │    ┌─────────────────────────┐          │
+│                              │     │    │ Base Model Interface    │          │
+│                              │     │    └──┬────┬────┬────┬──────┘          │
+│                              │     │       │    │    │    │                  │
+│                              │     │       │    │    │    │                  │
+│         ┌────────────────────┼─────┼───────┘    │    │    └─────────┐       │
+│         │                    │     │            │    │              │       │
+│    ┌────▼──────┐    ┌────────▼─────▼─┐   ┌─────▼────▼──┐   ┌──────▼────┐  │
+│    │  Neural   │    │   Classical     │   │     ML      │   │  AutoML   │  │
+│    │  Models   │    │    Models       │   │   Models    │   │  (auto-   │  │
+│    │ (N-BEATS, │    │ (ARIMA, Prophet)│   │ (XGBoost,   │   │  sklearn) │  │
+│    │ LSTM, TCN,│    │                 │   │  RF, SVM)   │   │           │  │
+│    │    TFT)   │    │                 │   │             │   │           │  │
+│    └────┬──────┘    └────────┬────────┘   └──────┬──────┘   └─────┬─────┘  │
+│         │                    │                   │                │         │
+│         │ Predictions        │ Predictions       │ Predictions    │         │
+│         │                    │                   │                │         │
+└─────────┼────────────────────┼───────────────────┼────────────────┼─────────┘
+          │                    │                   │                │
+          └────────────────────┴───────────────────┴────────────────┘
+                                        │
+┌───────────────────────────────────────▼──────────────────────────────────────┐
+│                          EVALUATION LAYER                                    │
+│                                                                              │
+│              ┌───────────────────────┐         ┌──────────────────┐         │
+│              │ Metrics Calculator    │────────▶│   Backtester     │         │
+│              │ (MAE, RMSE, MAPE)     │ Metrics │ (Walk-Forward    │         │
+│              │                       │         │   Validation)    │         │
+│              └───────────────────────┘         └────────┬─────────┘         │
+│                                                         │ Results            │
+└─────────────────────────────────────────────────────────┼──────────────────┘
+                                                          │
+                                      ┌───────────────────┘
+                                      │
+┌─────────────────────────────────────▼────────────────────────────────────────┐
+│                          APPLICATION LAYER                                   │
+│                                                                              │
+│          ┌──────────────┐       ┌──────────────┐       ┌──────────────┐    │
+│          │Configuration │──────▶│CLI Interface │◀──────│    Logger    │    │
+│          │  (Pydantic   │Config │   (Typer)    │ Logs  │   (Loguru)   │    │
+│          │  Settings)   │       │              │       │              │    │
+│          └──────────────┘       └──┬───┬───┬───┘       └──────────────┘    │
+│                                    │   │   │                                │
+│                    Commands        │   │   │ Commands                       │
+│                    ┌───────────────┘   │   └─────────────┐                 │
+│                    │                   │                 │                 │
+└────────────────────┼───────────────────┼─────────────────┼──────────────────┘
+                     │                   │                 │
+                     │                   │                 │
+                     ▼                   ▼                 ▼
+              (Data Fetcher)    (Base Model Interface) (Backtester)
 ```
 
 ## Component Responsibilities
