@@ -151,3 +151,63 @@ TABLE_OHLCV_RAW = "market_data.ohlcv_raw"
 TABLE_FEATURES = "market_data.features"
 TABLE_PREDICTIONS = "ml_data.predictions"
 TABLE_MODEL_METADATA = "ml_data.model_metadata"
+
+
+# =============================================================================
+# TRADING COSTS - Realistic defaults for backtesting
+# =============================================================================
+# IMPORTANT: These costs are CRITICAL for realistic backtesting.
+# Without accounting for costs, your results will be overly optimistic.
+
+# Binance fee schedule (as of 2024)
+DEFAULT_COMMISSION_PCT = 0.001  # 0.1% per trade (Binance taker fee)
+DEFAULT_SLIPPAGE_PCT = 0.0005  # 0.05% estimated slippage for BTC/USDT
+MIN_REALISTIC_ROUND_TRIP_COST = 0.002  # 0.2% minimum realistic cost
+
+# Cost with BNB discount (25% off)
+BNB_DISCOUNTED_COMMISSION_PCT = 0.00075  # 0.075% with BNB discount
+
+
+# =============================================================================
+# WALK-FORWARD VALIDATION - Defaults for realistic backtesting
+# =============================================================================
+# Walk-forward validation prevents overfitting by:
+# 1. Retraining the model as new data arrives
+# 2. Testing on out-of-sample data only
+# 3. Simulating real-world model deployment
+
+DEFAULT_WALK_FORWARD_FOLDS = 5  # Number of walk-forward folds
+DEFAULT_TRAIN_WINDOW_DAYS = 60  # Training window size (days)
+DEFAULT_TEST_WINDOW_DAYS = 10  # Test window size (days)
+DEFAULT_GAP_DAYS = 0  # Gap between train/test (for processing delays)
+
+
+# =============================================================================
+# FEATURE ENGINEERING - Settings for StatefulFeatureEngineer
+# =============================================================================
+# Warmup period: Number of initial rows to drop after feature generation.
+# Technical indicators (RSI, MACD, SMA_200) produce NaN for first N periods.
+# This should be >= the longest indicator lookback period.
+
+FEATURE_WARMUP_PERIOD = 200  # Covers SMA_200 and most indicators
+
+
+# =============================================================================
+# REALISTIC EXPECTATIONS - Benchmarks from quant-analyst.md
+# =============================================================================
+# Use these to validate your results. If metrics exceed these, check for bugs!
+
+# Directional accuracy expectations for BTC 1-minute
+REALISTIC_DIR_ACC_MIN = 0.51  # 51% - barely better than random
+REALISTIC_DIR_ACC_MAX = 0.55  # 55% - exceptional
+SUSPICIOUS_DIR_ACC = 0.60  # 60% - likely data leakage
+
+# Sharpe ratio expectations
+REALISTIC_SHARPE_MIN = 0.5  # Low but realistic
+REALISTIC_SHARPE_MAX = 2.0  # Very good
+SUSPICIOUS_SHARPE = 3.0  # Likely bugs or leakage
+
+# Win rate expectations
+REALISTIC_WIN_RATE_MIN = 0.48  # 48%
+REALISTIC_WIN_RATE_MAX = 0.55  # 55%
+SUSPICIOUS_WIN_RATE = 0.60  # 60% - check for problems

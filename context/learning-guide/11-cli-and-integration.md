@@ -80,16 +80,16 @@ Price Stradamus has 5 main command groups:
 
 ```bash
 # Fetch historical data
-python -m price_stradamus.cli.commands fetch --days 30
+python -m price_stradamus.cli fetch --days 30
 
 # Fetch specific symbol and timeframe
-python -m price_stradamus.cli.commands fetch \
+python -m price_stradamus.cli fetch \
     --symbol BTCUSDT \
     --timeframe 1m \
     --days 7
 
 # Fetch date range
-python -m price_stradamus.cli.commands fetch \
+python -m price_stradamus.cli fetch \
     --start-date 2025-01-01 \
     --end-date 2025-01-31
 ```
@@ -98,22 +98,22 @@ python -m price_stradamus.cli.commands fetch \
 
 ```bash
 # Train a model
-python -m price_stradamus.cli.commands train --model nbeats
+python -m price_stradamus.cli train --model nbeats
 
 # Train with custom parameters
-python -m price_stradamus.cli.commands train \
+python -m price_stradamus.cli train \
     --model nbeats \
     --epochs 200 \
     --batch-size 64 \
     --learning-rate 0.001
 
 # Make predictions
-python -m price_stradamus.cli.commands predict \
+python -m price_stradamus.cli predict \
     --model nbeats \
     --steps 5
 
 # Evaluate model
-python -m price_stradamus.cli.commands evaluate \
+python -m price_stradamus.cli evaluate \
     --model nbeats \
     --test-size 0.2
 ```
@@ -122,11 +122,11 @@ python -m price_stradamus.cli.commands evaluate \
 
 ```bash
 # Compare multiple models
-python -m price_stradamus.cli.commands compare \
+python -m price_stradamus.cli compare \
     --models nbeats lstm tcn
 
 # Compare with walk-forward validation
-python -m price_stradamus.cli.commands compare \
+python -m price_stradamus.cli compare \
     --models nbeats xgboost prophet \
     --walk-forward \
     --n-splits 5
@@ -136,20 +136,20 @@ python -m price_stradamus.cli.commands compare \
 
 ```bash
 # List available models
-python -m price_stradamus.cli.commands list-models
+python -m price_stradamus.cli list-models
 
 # Show model details
-python -m price_stradamus.cli.commands info --model nbeats
+python -m price_stradamus.cli info --model nbeats
 
 # Show database stats
-python -m price_stradamus.cli.commands db-stats
+python -m price_stradamus.cli db-stats
 ```
 
 ### 5. AutoML Commands (Future)
 
 ```bash
 # Run AutoML optimization
-python -m price_stradamus.cli.commands automl --time-budget 3600
+python -m price_stradamus.cli automl --time-budget 3600
 ```
 
 ---
@@ -234,7 +234,7 @@ import typer
 from pathlib import Path
 from price_stradamus.models.registry import ModelRegistry
 from price_stradamus.data.database import DatabaseManager
-from price_stradamus.data.features import FeatureEngineer
+from price_stradamus.data.stateful_features import StatefulFeatureEngineer
 
 app = typer.Typer()
 
@@ -259,21 +259,26 @@ def train(
     df = asyncio.run(db.get_ohlcv(symbol, timeframe))
     typer.echo(f"Loaded {len(df)} candles")
 
-    # Generate features
+    # Split raw data first (prevent data leakage)
+    typer.echo("✂️ Splitting data...")
+    train_size = int(len(df) * 0.7)
+    val_size = int(len(df) * 0.15)
+
+    train_raw = df[:train_size]
+    val_raw = df[train_size:train_size+val_size]
+    test_raw = df[train_size+val_size:]
+
+    # Generate features with fit-transform pattern
     typer.echo("🔧 Generating features...")
-    feature_engineer = FeatureEngineer()
-    df_with_features = feature_engineer.generate_all_features(df)
+    engineer = StatefulFeatureEngineer()
+    train_features = engineer.fit_transform(train_raw)  # Fit on training
+    val_features = engineer.transform(val_raw)          # Transform with train stats
+    test_features = engineer.transform(test_raw)        # Transform with train stats
 
     # Convert to TimeSeries
-    ts = feature_engineer.to_darts_timeseries(df_with_features, ['close'])
-
-    # Split data
-    train_size = int(len(ts) * 0.7)
-    val_size = int(len(ts) * 0.15)
-
-    train_ts = ts[:train_size]
-    val_ts = ts[train_size:train_size+val_size]
-    test_ts = ts[train_size+val_size:]
+    train_ts = engineer.to_darts_timeseries(train_features, ['close'])
+    val_ts = engineer.to_darts_timeseries(val_features, ['close'])
+    test_ts = engineer.to_darts_timeseries(test_features, ['close'])
 
     typer.echo(f"Train: {len(train_ts)}, Val: {len(val_ts)}, Test: {len(test_ts)}")
 
@@ -317,20 +322,20 @@ def train(
 
 ```bash
 # Step 1: Fetch data (if not already done)
-python -m price_stradamus.cli.commands fetch --days 30
+python -m price_stradamus.cli fetch --days 30
 
 # Step 2: Train model
-python -m price_stradamus.cli.commands train \
+python -m price_stradamus.cli train \
     --model nbeats \
     --epochs 100
 
 # Step 3: Evaluate on test set
-python -m price_stradamus.cli.commands evaluate \
+python -m price_stradamus.cli evaluate \
     --model nbeats \
     --test-size 0.2
 
 # Step 4: Make predictions
-python -m price_stradamus.cli.commands predict \
+python -m price_stradamus.cli predict \
     --model nbeats \
     --steps 5
 ```
@@ -339,17 +344,17 @@ python -m price_stradamus.cli.commands predict \
 
 ```bash
 # Fetch more data for better comparison
-python -m price_stradamus.cli.commands fetch --days 60
+python -m price_stradamus.cli fetch --days 60
 
 # Train all models
 for model in nbeats lstm tcn xgboost prophet; do
-    python -m price_stradamus.cli.commands train \
+    python -m price_stradamus.cli train \
         --model $model \
         --epochs 100
 done
 
 # Compare with walk-forward validation
-python -m price_stradamus.cli.commands compare \
+python -m price_stradamus.cli compare \
     --models nbeats lstm tcn xgboost prophet \
     --walk-forward \
     --n-splits 5
@@ -371,14 +376,14 @@ python -m price_stradamus.cli.commands compare \
 ```bash
 # Try different learning rates
 for lr in 0.0001 0.001 0.01; do
-    python -m price_stradamus.cli.commands train \
+    python -m price_stradamus.cli train \
         --model nbeats \
         --learning-rate $lr \
         --save-path "models/nbeats_lr_$lr"
 done
 
 # Compare results
-python -m price_stradamus.cli.commands compare-saved \
+python -m price_stradamus.cli compare-saved \
     --model-paths models/nbeats_lr_*
 ```
 
@@ -427,10 +432,10 @@ logger.error("Failed to fetch data: {error}", error=str(e))
 ```bash
 # Enable debug logging
 export LOG_LEVEL=DEBUG
-python -m price_stradamus.cli.commands train --model nbeats
+python -m price_stradamus.cli train --model nbeats
 
 # Or add --verbose flag
-python -m price_stradamus.cli.commands train \
+python -m price_stradamus.cli train \
     --model nbeats \
     --verbose
 ```
@@ -441,7 +446,7 @@ python -m price_stradamus.cli.commands train \
 
 ```bash
 # Check database contents
-python -m price_stradamus.cli.commands db-stats
+python -m price_stradamus.cli db-stats
 
 # Output:
 # Database Statistics
@@ -451,7 +456,7 @@ python -m price_stradamus.cli.commands db-stats
 # BTCUSDT  | 1m        | 43200 | 2025-01-01 | 2025-01-30
 
 # If empty, fetch data first
-python -m price_stradamus.cli.commands fetch --days 30
+python -m price_stradamus.cli fetch --days 30
 ```
 
 #### 2. Training Fails
@@ -470,13 +475,13 @@ tail -f logs/price_stradamus_*.log
 
 ```bash
 # Check data quality
-python -m price_stradamus.cli.commands check-data
+python -m price_stradamus.cli check-data
 
 # Check for data leakage
-python -m price_stradamus.cli.commands validate-features
+python -m price_stradamus.cli validate-features
 
 # Try simpler model first
-python -m price_stradamus.cli.commands train --model prophet
+python -m price_stradamus.cli train --model prophet
 ```
 
 ---
@@ -572,19 +577,19 @@ def test_train_command():
 # scripts/update_data.sh
 
 # Fetch latest data
-python -m price_stradamus.cli.commands fetch --days 1
+python -m price_stradamus.cli fetch --days 1
 
 # Retrain model if needed
 if [ -f "models/nbeats.pth" ]; then
     model_age=$(find models/nbeats.pth -mtime +7)
     if [ -n "$model_age" ]; then
         echo "Model older than 7 days, retraining..."
-        python -m price_stradamus.cli.commands train --model nbeats
+        python -m price_stradamus.cli train --model nbeats
     fi
 fi
 
 # Make predictions
-python -m price_stradamus.cli.commands predict \
+python -m price_stradamus.cli predict \
     --model nbeats \
     --steps 5 \
     > predictions/$(date +%Y%m%d).txt

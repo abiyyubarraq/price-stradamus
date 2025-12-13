@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from price_stradamus.models.classical.arima import ARIMAModel  # noqa: F401
 from price_stradamus.models.classical.prophet import ProphetModel  # noqa: F401
-from price_stradamus.models.ml.random_forest import RandomForestModel  # noqa: F401
 from price_stradamus.models.ml.xgboost import XGBoostModel  # noqa: F401
 from price_stradamus.models.neural.lstm import LSTMModel  # noqa: F401
 
@@ -193,13 +192,6 @@ def generate_model_comparison_table() -> str:
             "training": "Boosting",
             "speed": "Very Fast",
             "complexity": "Medium",
-        },
-        "random_forest": {
-            "type": "ML",
-            "gpu": "✗",
-            "training": "Bagging",
-            "speed": "Very Fast",
-            "complexity": "Low",
         },
     }
 

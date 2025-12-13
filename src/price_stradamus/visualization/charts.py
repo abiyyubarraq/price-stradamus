@@ -1,7 +1,7 @@
 """Interactive chart visualization for price predictions.
 
 This module provides TradingView-style charts for comparing predictions
-with actual prices.
+with actual prices using Plotly.
 """
 
 from __future__ import annotations
@@ -31,23 +31,44 @@ class PriceChartVisualizer:
         predictions: np.ndarray,
         timestamps: pd.DatetimeIndex,
         actual_values: np.ndarray | None = None,
+        actual_candles_df: pd.DataFrame | None = None,
         title: str = "Price Predictions",
         save_path: Path | None = None,
         show: bool = True,
     ) -> None:
-        """Plot price predictions with interactive chart.
+        """Plot price predictions with candlestick chart.
 
         Args:
-            historical_df: Historical OHLCV data
-            predictions: Predicted prices
+            historical_df: Historical OHLCV data with columns [timestamp, open, high, low, close, volume]
+            predictions: Predicted close prices
             timestamps: Timestamps for predictions
-            actual_values: Actual prices (if available, for comparison)
+            actual_values: Actual close prices from DB (if available, for comparison)
+            actual_candles_df: Actual OHLCV candles for prediction period from DB (if available)
             title: Chart title
             save_path: Path to save HTML file (optional)
             show: Whether to open chart in browser
         """
         if not PLOTLY_AVAILABLE:
-            logger.error("Plotly not installed. Cannot create charts.")
+            logger.error("Plotly not installed. Install with: pip install plotly")
+            return
+
+        # Validate inputs
+        if historical_df is None or historical_df.empty:
+            logger.error("Cannot create chart: historical_df is empty")
+            return
+
+        if len(predictions) == 0:
+            logger.error("Cannot create chart: predictions array is empty")
+            return
+
+        if len(timestamps) == 0:
+            logger.error("Cannot create chart: timestamps array is empty")
+            return
+
+        if len(predictions) != len(timestamps):
+            logger.error(
+                f"Data length mismatch: predictions={len(predictions)}, timestamps={len(timestamps)}"
+            )
             return
 
         # Create figure with subplots
@@ -55,12 +76,12 @@ class PriceChartVisualizer:
             rows=2,
             cols=1,
             shared_xaxes=True,
-            vertical_spacing=0.03,
-            row_heights=[0.7, 0.3],
+            vertical_spacing=0.02,
+            row_heights=[0.75, 0.25],
             subplot_titles=(title, "Volume"),
         )
 
-        # Add candlestick chart for historical data
+        # 1. Add historical OHLC candlesticks from DB
         fig.add_trace(
             go.Candlestick(
                 x=historical_df["timestamp"],
@@ -68,7 +89,7 @@ class PriceChartVisualizer:
                 high=historical_df["high"],
                 low=historical_df["low"],
                 close=historical_df["close"],
-                name="Historical Price",
+                name="Historical OHLC",
                 increasing_line_color="green",
                 decreasing_line_color="red",
             ),
@@ -76,36 +97,66 @@ class PriceChartVisualizer:
             col=1,
         )
 
-        # Add predicted prices
+        # 2. Add actual OHLC candles for prediction period from DB (if available)
+        if actual_candles_df is not None and not actual_candles_df.empty:
+            fig.add_trace(
+                go.Candlestick(
+                    x=actual_candles_df["timestamp"],
+                    open=actual_candles_df["open"],
+                    high=actual_candles_df["high"],
+                    low=actual_candles_df["low"],
+                    close=actual_candles_df["close"],
+                    name="Actual OHLC (Prediction Period)",
+                    increasing_line_color="green",
+                    decreasing_line_color="red",
+                    opacity=0.7,
+                ),
+                row=1,
+                col=1,
+            )
+
+        # 3. Add predicted close prices line
         fig.add_trace(
             go.Scatter(
                 x=timestamps,
                 y=predictions,
                 mode="lines+markers",
-                name="Predicted Price",
-                line={"color": "blue", "width": 2},
+                name="Predicted Close",
+                line={"color": "blue", "width": 3},
                 marker={"size": 8, "symbol": "diamond"},
             ),
             row=1,
             col=1,
         )
 
-        # Add actual prices if available
+        # 4. Add actual close prices line from DB (if available)
         if actual_values is not None:
             fig.add_trace(
                 go.Scatter(
                     x=timestamps,
                     y=actual_values,
                     mode="lines+markers",
-                    name="Actual Price",
-                    line={"color": "orange", "width": 2, "dash": "dot"},
-                    marker={"size": 6, "symbol": "circle"},
+                    name="Actual Close (DB)",
+                    line={"color": "orange", "width": 3, "dash": "dot"},
+                    marker={"size": 8, "symbol": "circle"},
                 ),
                 row=1,
                 col=1,
             )
 
-        # Add volume bars
+        # 5. Add prediction zone marker
+        if len(timestamps) > 0:
+            # Add vertical line at prediction start
+            fig.add_vline(
+                x=timestamps[0],
+                line_width=2,
+                line_dash="dash",
+                line_color="yellow",
+                annotation_text="Prediction Start",
+                annotation_position="top",
+            )
+
+        # 6. Add volume bars (historical)
         colors = [
             "green" if c >= o else "red"
             for c, o in zip(historical_df["close"], historical_df["open"])
@@ -118,6 +169,7 @@ class PriceChartVisualizer:
                 name="Volume",
                 marker_color=colors,
                 opacity=0.5,
+                showlegend=False,
             ),
             row=2,
             col=1,
@@ -147,13 +199,7 @@ class PriceChartVisualizer:
         )
 
         # Update axes
-        fig.update_xaxes(
-            rangeslider_visible=False,
-            rangebreaks=[
-                # Hide gaps (weekends, etc.)
-                {"bounds": ["sat", "mon"]},
-            ],
-        )
+        fig.update_xaxes(rangeslider_visible=False)
 
         # Save to file if requested
         if save_path:
@@ -171,7 +217,7 @@ class PriceChartVisualizer:
         df: pd.DataFrame,
         predictions: np.ndarray,
         actuals: np.ndarray,
-        timestamps: np.ndarray,
+        timestamps: np.ndarray | pd.DatetimeIndex,
         metrics: dict[str, float],
         title: str = "Model Evaluation Results",
         save_path: Path | None = None,
@@ -179,16 +225,16 @@ class PriceChartVisualizer:
     ) -> None:
         """Plot comprehensive evaluation results.
 
-        Shows:
-        1. Historical prices (candlesticks)
-        2. Predicted vs Actual comparison
-        3. Prediction errors over time
-        4. Metrics summary
+        Shows 3 chart rows:
+        1. OHLC candlesticks + Actual close line + Predicted close line (all overlaid)
+        2. Prediction errors over time
+        3. Volume bars
+        Plus metrics summary overlay
 
         Args:
-            df: Historical OHLCV data
-            predictions: All predicted values
-            actuals: All actual values
+            df: Historical OHLCV data from DB
+            predictions: All predicted close values
+            actuals: All actual close values from DB
             timestamps: Timestamps for predictions
             metrics: Calculated metrics dictionary
             title: Chart title
@@ -199,22 +245,41 @@ class PriceChartVisualizer:
             logger.error("Plotly not installed. Cannot create charts.")
             return
 
-        # Create subplots
+        # Validate inputs
+        if df is None or df.empty:
+            logger.error("Cannot create chart: DataFrame is empty")
+            return
+
+        if len(predictions) == 0 or len(actuals) == 0 or len(timestamps) == 0:
+            logger.error("Cannot create chart: predictions, actuals, or timestamps are empty")
+            return
+
+        if len(predictions) != len(actuals) or len(predictions) != len(timestamps):
+            logger.error(
+                f"Data length mismatch: predictions={len(predictions)}, "
+                f"actuals={len(actuals)}, timestamps={len(timestamps)}"
+            )
+            return
+
+        # Convert timestamps to pandas datetime if needed
+        if not isinstance(timestamps, pd.DatetimeIndex):
+            timestamps = pd.to_datetime(timestamps, utc=True)
+
+        # Create subplots with 3 rows
         fig = make_subplots(
-            rows=4,
+            rows=3,
             cols=1,
             shared_xaxes=True,
-            vertical_spacing=0.05,
-            row_heights=[0.4, 0.3, 0.2, 0.1],
+            vertical_spacing=0.02,
+            row_heights=[0.75, 0.125, 0.125],
             subplot_titles=(
                 title,
-                "Predicted vs Actual",
                 "Prediction Error",
                 "Volume",
             ),
         )
 
-        # Row 1: Historical candlesticks
+        # Row 1: Historical OHLC candlesticks from DB
         fig.add_trace(
             go.Candlestick(
                 x=df["timestamp"],
@@ -222,7 +287,7 @@ class PriceChartVisualizer:
                 high=df["high"],
                 low=df["low"],
                 close=df["close"],
-                name="Historical",
+                name="Historical OHLC",
                 increasing_line_color="green",
                 decreasing_line_color="red",
             ),
@@ -230,50 +295,53 @@ class PriceChartVisualizer:
             col=1,
         )
 
-        # Row 2: Predicted vs Actual
+        # Row 1: Add actual close prices from DB (overlaid on candlesticks)
         fig.add_trace(
             go.Scatter(
                 x=timestamps,
                 y=actuals,
-                mode="lines",
-                name="Actual",
-                line={"color": "orange", "width": 2},
+                mode="lines+markers",
+                name="Actual Close (DB)",
+                line={"color": "orange", "width": 3},
+                marker={"size": 6, "symbol": "circle"},
             ),
-            row=2,
+            row=1,
             col=1,
         )
 
+        # Row 1: Add predicted close prices (overlaid on candlesticks)
         fig.add_trace(
             go.Scatter(
                 x=timestamps,
                 y=predictions,
-                mode="lines",
-                name="Predicted",
-                line={"color": "blue", "width": 2, "dash": "dash"},
+                mode="lines+markers",
+                name="Predicted Close",
+                line={"color": "blue", "width": 3, "dash": "dash"},
+                marker={"size": 6, "symbol": "diamond"},
             ),
-            row=2,
+            row=1,
             col=1,
         )
 
-        # Row 3: Error over time
+        # Row 2: Error over time
         errors = predictions - actuals
         fig.add_trace(
             go.Scatter(
                 x=timestamps,
                 y=errors,
                 mode="lines",
-                name="Error",
-                line={"color": "red", "width": 1},
+                name="Prediction Error",
+                line={"color": "red", "width": 2},
                 fill="tozeroy",
             ),
-            row=3,
+            row=2,
             col=1,
         )
 
-        # Add zero line
-        fig.add_hline(y=0, line_dash="dash", line_color="gray", row=3, col=1)
+        # Add zero line for error
+        fig.add_hline(y=0, line_dash="dash", line_color="gray")
 
-        # Row 4: Volume
+        # Row 3: Volume
         colors = ["green" if c >= o else "red" for c, o in zip(df["close"], df["open"])]
 
         fig.add_trace(
@@ -283,8 +351,9 @@ class PriceChartVisualizer:
                 name="Volume",
                 marker_color=colors,
                 opacity=0.5,
+                showlegend=False,
             ),
-            row=4,
+            row=3,
             col=1,
         )
 
@@ -292,8 +361,8 @@ class PriceChartVisualizer:
         metrics_text = "<br>".join(
             [
                 "<b>Performance Metrics:</b>",
-                f"MAE: {metrics['mae']:.2f}",
-                f"RMSE: {metrics['rmse']:.2f}",
+                f"MAE: {metrics['mae']:.2f} USDT",
+                f"RMSE: {metrics['rmse']:.2f} USDT",
                 f"MAPE: {metrics['mape']:.2f}%",
                 f"Dir. Accuracy: {metrics['directional_accuracy']:.2f}%",
             ]
@@ -324,16 +393,21 @@ class PriceChartVisualizer:
             },
             hovermode="x unified",
             template="plotly_dark",
-            height=1000,
+            height=1200,
             showlegend=True,
+            legend={
+                "yanchor": "top",
+                "y": 0.99,
+                "xanchor": "left",
+                "x": 0.01,
+            },
         )
 
         # Update axes
         fig.update_xaxes(rangeslider_visible=False)
         fig.update_yaxes(title_text="Price (USDT)", row=1, col=1)
-        fig.update_yaxes(title_text="Price (USDT)", row=2, col=1)
-        fig.update_yaxes(title_text="Error (USDT)", row=3, col=1)
-        fig.update_yaxes(title_text="Volume", row=4, col=1)
+        fig.update_yaxes(title_text="Error (USDT)", row=2, col=1)
+        fig.update_yaxes(title_text="Volume", row=3, col=1)
 
         # Save if requested
         if save_path:
@@ -359,7 +433,7 @@ class PriceChartVisualizer:
 
         Args:
             predictions_dict: Dictionary of model_name -> predictions
-            actual: Actual values
+            actual: Actual close values from DB
             timestamps: Timestamps
             title: Chart title
             save_path: Path to save HTML
@@ -371,40 +445,56 @@ class PriceChartVisualizer:
 
         fig = go.Figure()
 
-        # Add actual values
+        # Add actual close values from DB
         fig.add_trace(
             go.Scatter(
                 x=timestamps,
                 y=actual,
-                mode="lines",
-                name="Actual",
-                line={"color": "black", "width": 3},
+                mode="lines+markers",
+                name="Actual Close (DB)",
+                line={"color": "white", "width": 4},
+                marker={"size": 8, "symbol": "circle"},
             )
         )
 
         # Add each model's predictions
-        colors = ["blue", "red", "green", "purple", "orange"]
+        colors = ["blue", "red", "green", "purple", "orange", "cyan", "magenta"]
         for i, (model_name, predictions) in enumerate(predictions_dict.items()):
             fig.add_trace(
                 go.Scatter(
                     x=timestamps,
                     y=predictions,
-                    mode="lines",
-                    name=model_name,
+                    mode="lines+markers",
+                    name=f"{model_name} Predicted",
                     line={"color": colors[i % len(colors)], "width": 2, "dash": "dash"},
+                    marker={"size": 6, "symbol": "diamond"},
                 )
             )
 
         fig.update_layout(
-            title=title,
+            title={
+                "text": title,
+                "x": 0.5,
+                "xanchor": "center",
+                "font": {"size": 18},
+            },
             xaxis_title="Time",
             yaxis_title="Price (USDT)",
             hovermode="x unified",
             template="plotly_dark",
             height=600,
+            showlegend=True,
+            legend={
+                "yanchor": "top",
+                "y": 0.99,
+                "xanchor": "left",
+                "x": 0.01,
+            },
         )
 
         if save_path:
+            save_path = Path(save_path)
+            save_path.parent.mkdir(parents=True, exist_ok=True)
             fig.write_html(str(save_path))
             logger.info(f"Comparison chart saved to {save_path}")
 

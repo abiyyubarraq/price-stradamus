@@ -3,6 +3,7 @@
 This module sets up the main Typer application and registers all command groups:
 - Data commands (fetch)
 - Model commands (train, predict, evaluate, compare)
+- Window commands (train-window, eval-window) - for preventing data leakage
 - Info commands (list-models, info)
 """
 
@@ -13,6 +14,7 @@ import typer
 from price_stradamus.cli.data_commands import register_data_commands
 from price_stradamus.cli.info_commands import register_info_commands
 from price_stradamus.cli.model_commands import register_model_commands
+from price_stradamus.cli.window_commands import register_window_commands
 
 # Create main Typer app
 app = typer.Typer(
@@ -25,6 +27,7 @@ app = typer.Typer(
 # Register all command groups
 register_data_commands(app)
 register_model_commands(app)
+register_window_commands(app)  # TimeWindow-based commands for data leakage prevention
 register_info_commands(app)
 
 

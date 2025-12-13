@@ -8,7 +8,7 @@ After this module, you will:
 - Understand ARIMA and when it works best
 - Know how Prophet handles seasonality
 - Master XGBoost for feature-based forecasting
-- Understand Random Forest ensemble methods
+- Understand  ensemble methods
 - Know when to use classical/ML vs neural networks
 
 ---
@@ -425,11 +425,11 @@ feature_importance = model.model.get_feature_importance()
 
 ---
 
-## 4. Random Forest: Ensemble of Trees
+## 4. : Ensemble of Trees
 
-### How Random Forest Works
+### How  Works
 
-Random Forest builds **many decision trees in parallel** and averages their predictions.
+ builds **many decision trees in parallel** and averages their predictions.
 
 ```python
 # Simplified concept
@@ -455,16 +455,16 @@ final_prediction = mean(predictions)
 ```
 
 **Key difference from XGBoost:**
-- **Random Forest**: Trees built independently in parallel
+- ****: Trees built independently in parallel
 - **XGBoost**: Trees built sequentially, each correcting previous
 
-### Random Forest in Price Stradamus
+###  in Price Stradamus
 
 ```python
-# src/price_stradamus/models/ml/random_forest.py
-from darts.models import RandomForest as DartsRF
+# src/price_stradamus/models/ml/.py
+from darts.models import  as DartsRF
 
-class RandomForestModel(BaseModel):
+class Model(BaseModel):
     def __init__(
         self,
         lags: int | list[int] = 60,
@@ -473,7 +473,7 @@ class RandomForestModel(BaseModel):
         min_samples_split: int = 2,
         lags_future_covariates: list[int] | None = None,
     ):
-        """Initialize Random Forest model.
+        """Initialize  model.
 
         Args:
             lags: Past values to use as features
@@ -482,7 +482,7 @@ class RandomForestModel(BaseModel):
             min_samples_split: Minimum samples to split node
             lags_future_covariates: Future features
         """
-        super().__init__(name="random_forest")
+        super().__init__(name="")
 
         self.model = DartsRF(
             lags=lags,
@@ -493,9 +493,9 @@ class RandomForestModel(BaseModel):
         )
 ```
 
-### Random Forest vs XGBoost
+###  vs XGBoost
 
-| Aspect | Random Forest | XGBoost |
+| Aspect |  | XGBoost |
 |--------|--------------|---------|
 | **Training** | Parallel (faster) | Sequential (slower) |
 | **Overfitting** | Less prone | More prone (needs tuning) |
@@ -503,15 +503,15 @@ class RandomForestModel(BaseModel):
 | **Interpretability** | High | Medium |
 | **Best for** | Stability, less tuning | Maximum performance |
 
-### When to Use Random Forest
+### When to Use 
 
-✅ **Use Random Forest when:**
+✅ **Use  when:**
 - Want stable predictions (less overfitting)
 - Limited time for hyperparameter tuning
 - Need feature importance
 - Have engineered features
 
-❌ **Don't use Random Forest when:**
+❌ **Don't use  when:**
 - Need maximum accuracy (XGBoost better)
 - No feature engineering (N-BEATS better)
 
@@ -536,7 +536,7 @@ def choose_model(
     if need_interpretable:
         if has_seasonality:
             return "Prophet"
-        return "ARIMA" if data_size < 1000 else "Random Forest"
+        return "ARIMA" if data_size < 1000 else ""
 
     if has_features:
         return "XGBoost"  # Best with engineered features
@@ -552,7 +552,7 @@ def choose_model(
 | **ARIMA** | Fast | Fast | High | <1k |
 | **Prophet** | Fast | Medium | High | <5k |
 | **XGBoost** | Medium | Fast | Medium | 1k-100k |
-| **Random Forest** | Fast | Fast | High | 1k-100k |
+| **** | Fast | Fast | High | 1k-100k |
 | **N-BEATS** | Slow | Medium | Medium | >1k |
 | **LSTM** | Slow | Medium | Low | >500 |
 | **TCN** | Medium | Fast | Low | >500 |
@@ -604,7 +604,7 @@ Combine predictions from multiple models:
 
 ```python
 # TODO:
-# 1. Train ARIMA, Prophet, XGBoost, Random Forest
+# 1. Train ARIMA, Prophet, XGBoost, 
 # 2. Get predictions from each
 # 3. Try different ensemble methods:
 #    - Simple average
@@ -628,7 +628,7 @@ Learn how to properly evaluate models and avoid common pitfalls.
 - [ ] I understand how ARIMA works and its parameters
 - [ ] I know when to use Prophet for seasonal data
 - [ ] I understand XGBoost gradient boosting
-- [ ] I can compare Random Forest vs XGBoost
+- [ ] I can compare  vs XGBoost
 - [ ] I know when to use classical/ML vs neural models
 - [ ] I can choose the right model for my data
 

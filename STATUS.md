@@ -123,12 +123,12 @@
 - **File**: `src/price_stradamus/models/ml/xgboost.py` (280 lines)
 - **Tests**: 17 test cases
 
-**RandomForest** ✅
+**** ✅
 - Ensemble of decision trees
 - Parallel training (n_jobs=-1)
 - Robust baseline model
 - Fast training speed
-- **File**: `src/price_stradamus/models/ml/random_forest.py` (273 lines)
+- **File**: `src/price_stradamus/models/ml/.py` (273 lines)
 - **Tests**: 20 test cases
 
 ### 3. Evaluation Layer (100%)
@@ -175,10 +175,16 @@
 - [x] Progress indicators
 - [x] Error handling with friendly messages
 - [x] Async operation support
-- **Files**: Modular CLI structure (898 lines total)
-  - `model_commands.py` (632 lines) - train, predict, evaluate, compare
-  - `data_commands.py` (113 lines) - fetch data from Binance
+- **Files**: Modular CLI structure (refactored)
+  - `model_commands.py` (28 lines) - Command registration
+  - `commands/` - Individual command implementations
+    - `train.py` (312 lines) - Train models
+    - `predict.py` (469 lines) - Make predictions
+    - `evaluate.py` (483 lines) - Evaluate models
+    - `compare.py` (38 lines) - Compare models
+  - `data_commands.py` (113 lines) - Fetch data from Binance
   - `info_commands.py` (108 lines) - list-models, info
+  - `window_commands.py` - Time window-based commands
   - `__init__.py` (37 lines) - CLI app initialization
   - `__main__.py` (8 lines) - Entry point
 
@@ -540,7 +546,7 @@ python -c "import price_stradamus; print(price_stradamus.__version__)"
 
 #### ML Models (2)
 7. XGBoost (Gradient Boosting)
-8. RandomForest (Tree Ensemble)
+8.  (Tree Ensemble)
 
 ### Technical Indicators
 - **Price-based**: 7 features
@@ -623,7 +629,7 @@ Registered Models (8 total)
 │ lstm          │ LSTMModel        │ LSTM model for time series...     │
 │ nbeats        │ NBEATSModel      │ N-BEATS model for time series...  │
 │ prophet       │ ProphetModel     │ Prophet model for time series...  │
-│ random_forest │ RandomForestModel│ Random Forest model for TS...     │
+│  │ Model│  model for TS...     │
 │ tcn           │ TCNModel         │ TCN model for time series...      │
 │ tft           │ TFTModel         │ Temporal Fusion Transformer...    │
 │ xgboost       │ XGBoostModel     │ XGBoost model for time series...  │
@@ -670,7 +676,7 @@ Registered Models (8 total)
 
 The core system is production-ready with:
 - ✅ Complete data pipeline
-- ✅ **8 working models** (Neural: N-BEATS, LSTM, TCN, TFT | Classical: ARIMA, Prophet | ML: XGBoost, RandomForest)
+- ✅ **8 working models** (Neural: N-BEATS, LSTM, TCN, TFT | Classical: ARIMA, Prophet | ML: XGBoost, )
 - ✅ Comprehensive evaluation & backtesting
 - ✅ Model comparison utilities
 - ✅ Professional CLI (7 commands)

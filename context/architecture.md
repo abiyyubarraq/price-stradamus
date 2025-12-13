@@ -330,7 +330,6 @@ MODEL_REGISTRY = {
     "arima": ARIMAModel,
     "prophet": ProphetModel,
     "xgboost": XGBoostModel,
-    "random_forest": RandomForestModel,
 }
 
 def get_model(name: str) -> type[BaseModel]:
@@ -390,9 +389,15 @@ Train Window | Test | Train Window    | Test |
 **Responsibility**: User-facing command-line interface
 
 **Structure**: Modular command organization
-- `model_commands.py`: Model operations (train, predict, evaluate, compare)
+- `model_commands.py`: Model command registration
+- `commands/`: Individual model command implementations
+  - `train.py`: Train command implementation
+  - `predict.py`: Predict command implementation
+  - `evaluate.py`: Evaluate command implementation
+  - `compare.py`: Compare command implementation
 - `data_commands.py`: Data operations (fetch from Binance)
 - `info_commands.py`: Information commands (list-models, info)
+- `window_commands.py`: Time window-based commands
 - `__init__.py`: CLI app initialization and command registration
 - `__main__.py`: Entry point for `python -m price_stradamus.cli`
 

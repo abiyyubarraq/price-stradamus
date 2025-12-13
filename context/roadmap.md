@@ -57,7 +57,7 @@ Build a production-ready, scalable Bitcoin price prediction system that achieves
 - [x] TCN model implementation
 - [x] TFT neural model implementation
 - [x] Classical models (ARIMA, Prophet) implementation
-- [x] ML models (XGBoost, RandomForest) implementation
+- [x] ML models (XGBoost, ) implementation
 - [x] Walk-forward backtesting
 - [x] Comprehensive evaluation metrics (MAE, RMSE, MAPE, directional accuracy)
 - [x] CLI interface (7 commands)

@@ -13,8 +13,15 @@ cli/
 ├── __init__.py          # Main app entry point
 ├── __main__.py          # Module execution entry (python -m price_stradamus.cli)
 ├── data_commands.py     # Data operations (fetch)
-├── model_commands.py    # ML operations (train, predict, evaluate, compare)
+├── model_commands.py    # ML command registration
 ├── info_commands.py     # System info (list-models, info)
+├── window_commands.py   # Time window-based commands
+├── commands/            # Model command implementations
+│   ├── __init__.py      # Command exports
+│   ├── train.py         # Train command implementation
+│   ├── predict.py       # Predict command implementation
+│   ├── evaluate.py      # Evaluate command implementation
+│   └── compare.py       # Compare command implementation
 ├── CLI-COMMANDS.md      # Complete command reference
 └── README.md            # This file
 ```
@@ -24,10 +31,12 @@ cli/
 | Command | Description | File |
 |---------|-------------|------|
 | `fetch` | Fetch historical data from Binance | [data_commands.py](data_commands.py) |
-| `train` | Train a prediction model | [model_commands.py](model_commands.py) |
-| `predict` | Make predictions with trained model | [model_commands.py](model_commands.py) |
-| `evaluate` | Evaluate model performance | [model_commands.py](model_commands.py) |
-| `compare` | Compare multiple models | [model_commands.py](model_commands.py) |
+| `train` | Train a prediction model | [commands/train.py](commands/train.py) |
+| `train-window` | Train with explicit time boundaries (prevents data leakage) | [window_commands.py](window_commands.py) |
+| `predict` | Make predictions with trained model | [commands/predict.py](commands/predict.py) |
+| `evaluate` | Evaluate model performance | [commands/evaluate.py](commands/evaluate.py) |
+| `eval-window` | Evaluate on explicit time period (prevents data leakage) | [window_commands.py](window_commands.py) |
+| `compare` | Compare multiple models | [commands/compare.py](commands/compare.py) |
 | `list-models` | List available models | [info_commands.py](info_commands.py) |
 | `info` | Show system information | [info_commands.py](info_commands.py) |
 
@@ -72,6 +81,30 @@ python -m price_stradamus.cli evaluate --model-path models/nbeats_model.pkl
 price-stradamus list-models
 # OR
 python -m price_stradamus.cli list-models
+
+# Train with time window (prevents data leakage)
+price-stradamus train-window \
+    --model  \
+    --train-start "2025-08-01" \
+    --train-end "2025-10-31"
+# OR
+python -m price_stradamus.cli train-window \
+    --model  \
+    --train-start "2025-08-01" \
+    --train-end "2025-10-31"
+
+# Evaluate on time window (prevents data leakage)
+price-stradamus eval-window \
+    --model-path models/_aug_oct.pkl \
+    --test-start "2025-11-01" \
+    --test-end "2025-12-07" \
+    --train-end "2025-10-31"
+# OR
+python -m price_stradamus.cli eval-window \
+    --model-path models/_aug_oct.pkl \
+    --test-start "2025-11-01" \
+    --test-end "2025-12-07" \
+    --train-end "2025-10-31"
 ```
 
 ---
@@ -130,13 +163,23 @@ This allows running via `python -m price_stradamus.cli`.
 
 ### Adding a New Command
 
-1. **Choose the appropriate file** based on domain:
+1. **Choose the appropriate location** based on domain:
    - Data operations → `data_commands.py`
-   - Model operations → `model_commands.py`
+   - Model operations → Create new file in `commands/` directory
    - System info → `info_commands.py`
 
-2. **Define the command function**:
+2. **For model commands, create a new file** in `commands/`:
    ```python
+   # commands/my_command.py
+   """My command - Brief description."""
+
+   from __future__ import annotations
+
+   import typer
+   from rich.console import Console
+
+   console = Console()
+
    def my_command(
        option1: str = typer.Option(..., "--option1", "-o1", help="Description"),
    ) -> None:
@@ -148,14 +191,26 @@ This allows running via `python -m price_stradamus.cli`.
        pass
    ```
 
-3. **Register in the module's registration function**:
+3. **Export from `commands/__init__.py`**:
    ```python
-   def register_data_commands(app: typer.Typer) -> None:
-       app.command()(fetch)
+   from price_stradamus.cli.commands.my_command import my_command
+
+   __all__ = ["train", "predict", "evaluate", "compare", "my_command"]
+   ```
+
+4. **Register in `model_commands.py`**:
+   ```python
+   from price_stradamus.cli.commands import compare, evaluate, predict, train, my_command
+
+   def register_model_commands(app: typer.Typer) -> None:
+       app.command()(train)
+       app.command()(predict)
+       app.command()(evaluate)
+       app.command()(compare)
        app.command()(my_command)  # Add here
    ```
 
-4. **Test**:
+5. **Test**:
    ```bash
    # Using installed CLI
    price-stradamus --help  # Should show new command

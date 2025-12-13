@@ -2,14 +2,31 @@
 
 This module provides comprehensive metrics for evaluating time series
 prediction models, including error metrics and directional accuracy.
+
+For complete evaluation, combine with financial_metrics.py to get:
+- Error metrics (MAE, RMSE, etc.) - from this module
+- Financial metrics (P&L, Sharpe, etc.) - from financial_metrics
+
+Example:
+    # Get all metrics including financial
+    metrics = MetricsCalculator.calculate_all_with_financial(
+        y_true=actual_prices,
+        y_pred=predicted_prices,
+        include_financial=True,
+    )
 """
 
 from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
 from loguru import logger
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+
+if TYPE_CHECKING:
+    from price_stradamus.evaluation.financial_metrics import TradingCosts
 
 
 class MetricsCalculator:
@@ -251,6 +268,87 @@ class MetricsCalculator:
             f"Calculated metrics: MAE={metrics['mae']:.4f}, RMSE={metrics['rmse']:.4f}, "
             f"Directional Accuracy={metrics['directional_accuracy']:.2f}%"
         )
+
+        return metrics
+
+    @staticmethod
+    def calculate_all_with_financial(
+        y_true: np.ndarray,
+        y_pred: np.ndarray,
+        include_financial: bool = True,
+        trading_costs: "TradingCosts | None" = None,
+    ) -> dict[str, float]:
+        """Calculate all metrics including financial performance metrics.
+
+        This method combines error metrics with financial metrics for a complete
+        evaluation that accounts for realistic trading costs.
+
+        Args:
+            y_true: True values (prices)
+            y_pred: Predicted values (prices)
+            include_financial: Whether to include financial metrics (default True)
+            trading_costs: Trading cost configuration. If None, uses defaults
+                          (0.1% commission + 0.05% slippage)
+
+        Returns:
+            Dictionary with all metrics:
+            - Error metrics: mae, mse, rmse, mape, smape, r2, max_error
+            - directional_accuracy: Direction prediction accuracy (%)
+            - Financial metrics (if include_financial=True):
+              - fin_gross_pnl: P&L before costs
+              - fin_net_pnl: P&L after costs
+              - fin_total_costs: Total trading costs
+              - fin_return_pct: Return percentage
+              - fin_sharpe_ratio: Risk-adjusted return
+              - fin_sortino_ratio: Downside risk-adjusted return
+              - fin_max_drawdown_pct: Maximum peak-to-trough decline
+              - fin_win_rate: Percentage of winning trades
+              - fin_profit_factor: Gross profit / gross loss
+              - fin_avg_win: Average winning trade
+              - fin_avg_loss: Average losing trade
+
+        Example:
+            y_true = np.array([100, 101, 99, 102, 100])
+            y_pred = np.array([100.5, 100.8, 99.5, 101.5, 100.2])
+
+            # With default costs
+            metrics = MetricsCalculator.calculate_all_with_financial(
+                y_true, y_pred
+            )
+
+            # With custom costs
+            from price_stradamus.evaluation.financial_metrics import TradingCosts
+            costs = TradingCosts(commission_pct=0.0005, slippage_pct=0.0002)
+            metrics = MetricsCalculator.calculate_all_with_financial(
+                y_true, y_pred, trading_costs=costs
+            )
+        """
+        # Calculate error metrics (existing)
+        metrics = MetricsCalculator.calculate_all(y_true, y_pred)
+
+        # Add financial metrics if requested
+        if include_financial:
+            from price_stradamus.evaluation.financial_metrics import (
+                FinancialMetricsCalculator,
+                TradingCosts,
+            )
+
+            # Use provided costs or defaults
+            costs = trading_costs or TradingCosts()
+            fin_calc = FinancialMetricsCalculator(costs=costs)
+
+            # Calculate financial metrics
+            financial = fin_calc.calculate_all(y_true, y_pred)
+
+            # Add with 'fin_' prefix to distinguish from error metrics
+            for key, value in financial.items():
+                metrics[f"fin_{key}"] = value
+
+            logger.debug(
+                f"Financial metrics: Net P&L=${financial['net_pnl']:.2f}, "
+                f"Sharpe={financial['sharpe_ratio']:.2f}, "
+                f"Win Rate={financial['win_rate']:.1f}%"
+            )
 
         return metrics
 

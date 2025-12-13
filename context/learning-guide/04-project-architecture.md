@@ -107,7 +107,7 @@ price-stradamus/
 │   │   └── ml/                    # Machine learning models
 │   │       ├── __init__.py
 │   │       ├── xgboost.py         # XGBoost
-│   │       └── random_forest.py   # Random Forest
+│   │       └── .py   # 
 │   │
 │   ├── evaluation/                # Model evaluation
 │   │   ├── __init__.py
@@ -384,7 +384,7 @@ class DatabaseManager:
 
 #### Step 1: Fetch Data
 ```python
-# User runs: python -m price_stradamus.cli.commands fetch --days 30
+# User runs: python -m price_stradamus.cli fetch --days 30
 
 # 1. CLI receives command
 # cli/data_commands.py
@@ -408,18 +408,23 @@ def fetch(days: int = 30):
 
 #### Step 2: Train Model
 ```python
-# User runs: python -m price_stradamus.cli.commands train --model nbeats
+# User runs: python -m price_stradamus.cli train --model nbeats
 
 # 1. Load data from database
 db = DatabaseManager()
 df = asyncio.run(db.get_ohlcv("BTCUSDT", "1m"))
 
-# 2. Generate features
-feature_engineer = FeatureEngineer()
-df_with_features = feature_engineer.generate_all_features(df)
+# 2. Split raw data first (prevent data leakage)
+train_raw, test_raw = train_test_split(df)
 
-# 3. Convert to TimeSeries
-ts = feature_engineer.to_darts_timeseries(df_with_features, ["close"])
+# 3. Generate features with fit-transform pattern
+engineer = StatefulFeatureEngineer()
+train_features = engineer.fit_transform(train_raw)  # Fit on training
+test_features = engineer.transform(test_raw)        # Transform test
+
+# 4. Convert to TimeSeries
+train_ts = engineer.to_darts_timeseries(train_features, ["close"])
+test_ts = engineer.to_darts_timeseries(test_features, ["close"])
 
 # 4. Split data
 train_ts = ts[:int(len(ts) * 0.7)]
@@ -435,7 +440,7 @@ model.save(Path("models/nbeats.pth"))
 
 #### Step 3: Predict
 ```python
-# User runs: python -m price_stradamus.cli.commands predict --steps 5
+# User runs: python -m price_stradamus.cli predict --steps 5
 
 # 1. Load model
 model = ModelRegistry.create_model("nbeats")
@@ -559,7 +564,7 @@ from price_stradamus.data.fetcher import BinanceDataFetcher
 
 **Task**: Trace what happens when you run:
 ```bash
-python -m price_stradamus.cli.commands train --model nbeats
+python -m price_stradamus.cli train --model nbeats
 ```
 
 Write down:
@@ -574,7 +579,8 @@ Write down:
 1. **CLI**: `src/price_stradamus/cli/model_commands.py` - `train()` function
 2. **Services**:
    - `DatabaseManager.get_ohlcv()` - Load data
-   - `FeatureEngineer.generate_all_features()` - Create features
+   - `StatefulFeatureEngineer.fit_transform()` - Create features (training)
+   - `StatefulFeatureEngineer.transform()` - Create features (test)
    - `ModelRegistry.create_model()` - Create model instance
 3. **Data source**: PostgreSQL database (ml_data.ohlcv table)
 4. **Model saved**: `models/nbeats.pth` (configurable path)

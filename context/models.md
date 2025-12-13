@@ -940,7 +940,6 @@ LATENCY_BENCHMARKS = [
     LatencyBenchmark("TFT", "CPU", 28.5, 42.3, 68.5, 35),
     LatencyBenchmark("ARIMA", "CPU", 0.1, 0.2, 0.3, 10000),
     LatencyBenchmark("XGBoost", "CPU", 0.05, 0.08, 0.12, 20000),
-    LatencyBenchmark("RandomForest", "CPU", 0.8, 1.2, 1.8, 1250),
 ]
 
 

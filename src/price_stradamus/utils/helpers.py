@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import numpy as np
@@ -73,15 +73,15 @@ def datetime_to_unix_ms(dt: datetime) -> int:
 
 
 def unix_ms_to_datetime(ts: int) -> datetime:
-    """Convert Unix timestamp in milliseconds to datetime.
+    """Convert Unix timestamp in milliseconds to datetime in UTC.
 
     Args:
         ts: Unix timestamp in milliseconds
 
     Returns:
-        Datetime object
+        Datetime object in UTC timezone
     """
-    return datetime.fromtimestamp(ts / 1000)
+    return datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
 
 
 def calculate_splits(
@@ -193,6 +193,67 @@ def memory_usage_mb(df: pd.DataFrame) -> float:
     return df.memory_usage(deep=True).sum() / 1024**2
 
 
+def returns_to_prices(
+    returns: np.ndarray,
+    initial_price: float,
+    cumulative: bool = False,
+) -> np.ndarray:
+    """Convert percentage returns to absolute prices.
+
+    Args:
+        returns: Array of percentage returns (e.g., [0.001, -0.002, 0.003])
+        initial_price: Starting price to anchor predictions
+        cumulative: If True, returns are cumulative. If False, single-step.
+
+    Returns:
+        Array of predicted prices
+
+    Example:
+        >>> returns = np.array([0.01, -0.005, 0.02])
+        >>> prices = returns_to_prices(returns, initial_price=100.0)
+        >>> # Result: [101.0, 100.495, 102.505]
+    """
+    if cumulative:
+        # For cumulative returns: price[t] = initial_price * (1 + cumulative_return[t])
+        return initial_price * (1 + returns)
+    else:
+        # For single-step returns: iteratively apply each return
+        prices = np.zeros(len(returns))
+        current_price = initial_price
+        for i, ret in enumerate(returns):
+            current_price = current_price * (1 + ret)
+            prices[i] = current_price
+        return prices
+
+
+def prices_to_returns(
+    prices: np.ndarray,
+    log_returns: bool = False,
+) -> np.ndarray:
+    """Convert prices to percentage returns.
+
+    Args:
+        prices: Array of prices
+        log_returns: Use log returns instead of simple returns
+
+    Returns:
+        Array of returns (length = len(prices) - 1, first value is NaN)
+
+    Example:
+        >>> prices = np.array([100, 101, 100.5, 102])
+        >>> returns = prices_to_returns(prices)
+        >>> # Result: [nan, 0.01, -0.00495, 0.01492]
+    """
+    if log_returns:
+        returns = np.full(len(prices), np.nan)
+        returns[1:] = np.log(prices[1:] / prices[:-1])
+        return returns
+    else:
+        returns = np.full(len(prices), np.nan)
+        returns[1:] = (prices[1:] - prices[:-1]) / prices[:-1]
+        return returns
+
+
 __all__ = [
     "timeframe_to_milliseconds",
     "timeframe_to_timedelta",
@@ -204,4 +265,6 @@ __all__ = [
     "format_duration",
     "validate_dataframe",
     "memory_usage_mb",
+    "returns_to_prices",
+    "prices_to_returns",
 ]

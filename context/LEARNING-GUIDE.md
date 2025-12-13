@@ -168,7 +168,7 @@ START
   │         │         ├─> Forward fill for gaps <10 candles
   │         │         └─> Linear interpolation for larger gaps
   │         │
-  │         ├─> FeatureEngineer.generate_all_features()
+  │         ├─> StatefulFeatureEngineer.fit_transform()
   │         │         │
   │         │         ├─> Price Features:
   │         │         │     ├─> Returns (% change)
@@ -195,7 +195,7 @@ START
   │         │               ├─> Volume SMA
   │         │               └─> VWAP
   │         │
-  │         ├─> FeatureEngineer.to_darts_timeseries()
+  │         ├─> StatefulFeatureEngineer.to_darts_timeseries()
   │         │         │
   │         │         ├─> Set timestamp as index
   │         │         ├─> Convert to Darts TimeSeries object
@@ -234,7 +234,7 @@ START
   │         │               │     ├─> Build trees iteratively
   │         │               │     └─> Optimize for MAE
   │         │               │
-  │         │               ├─> [Random Forest]: Ensemble of decision trees
+  │         │               ├─> []: Ensemble of decision trees
   │         │               │
   │         │               ├─> [ARIMA]: Statistical time series model
   │         │               │     ├─> Determine (p, d, q) orders
@@ -477,9 +477,9 @@ class DataPreprocessor:
         """
 ```
 
-#### 1.4 FeatureEngineer (`features.py`)
+#### 1.4 StatefulFeatureEngineer (`stateful_features.py`)
 
-**Purpose**: Generate technical indicators from OHLCV data.
+**Purpose**: Generate technical indicators from OHLCV data with proper fit-transform pattern to prevent data leakage.
 
 **Feature Categories**:
 
@@ -522,19 +522,21 @@ class DataPreprocessor:
 
 **Implementation**:
 ```python
-class FeatureEngineer:
-    def generate_all_features(
+class StatefulFeatureEngineer:
+    def fit_transform(
         self,
         df: pd.DataFrame,
     ) -> pd.DataFrame:
-        """Generate all 42+ features using pandas-ta.
+        """Generate all 58+ features using pandas-ta with fit-transform pattern.
 
         Implementation:
         1. Create copy of DataFrame
         2. Add each feature category:
            - Call pandas_ta methods (e.g., ta.rsi())
            - Handle NaN values from indicator calculations
-           - Forward fill initial NaNs (warmup period)
+           - Store normalization statistics (mean, std) from training data
+        3. Normalize features using training statistics
+        4. Drop warmup period rows
         3. Drop rows with remaining NaNs
         4. Return DataFrame with original + feature columns
         """
@@ -811,7 +813,7 @@ class XGBoostModel(BaseModel):
     """
 ```
 
-**Random Forest** (`models/ml/random_forest.py`):
+**** (`models/ml/.py`):
 ```
 Ensemble of decision trees with bagging
 - Each tree sees random subset of data
@@ -1013,7 +1015,7 @@ src/price_stradamus/
 │   └── ml/                # Machine Learning Models
 │       ├── __init__.py
 │       ├── xgboost.py     # XGBoost
-│       └── random_forest.py  # Random Forest
+│       └── .py  # 
 │
 ├── evaluation/             # Model Evaluation
 │   ├── __init__.py
@@ -1061,7 +1063,7 @@ def main():
 # cli/model_commands.py
 from price_stradamus.models.registry import ModelRegistry
 from price_stradamus.data.database import DatabaseManager
-from price_stradamus.data.features import FeatureEngineer
+from price_stradamus.data.stateful_features import StatefulFeatureEngineer
 # etc.
 
 # models/neural/nbeats.py
@@ -1257,10 +1259,11 @@ settings = Settings()
 # 1. Implement DataPreprocessor
 #    - validate_ohlcv()
 #    - handle_missing_values()
-# 2. Implement FeatureEngineer
-#    - generate_all_features() using pandas-ta
+# 2. Implement StatefulFeatureEngineer
+#    - fit_transform() using pandas-ta (fit on training)
+#    - transform() for test data (no leakage)
 #    - to_darts_timeseries()
-# 3. Test on real data
+# 3. Test on real data with proper train/test split
 ```
 
 ### Step 6: Model Infrastructure (2 hours)

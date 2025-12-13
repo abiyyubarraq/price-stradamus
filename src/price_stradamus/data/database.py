@@ -7,7 +7,7 @@ time series data, features, predictions, and model metadata.
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import pandas as pd
@@ -330,8 +330,8 @@ class DatabaseManager:
             features_dict = {}
             for col in feature_columns:
                 value = row[col]
-                # Check for NaN - convert to Python scalar first for type safety
-                if isinstance(value, float) and pd.isna(value):
+                # Check for any type of missing value (None, NaN, pd.NA, etc.)
+                if value is None or pd.isna(value):
                     features_dict[col] = None
                 else:
                     features_dict[col] = float(value)
@@ -421,7 +421,8 @@ class DatabaseManager:
         records = []
         for row in rows:
             timestamp, features_json = row
-            features = json.loads(features_json)
+            # PostgreSQL JSONB columns are already deserialized to dict by the driver
+            features = features_json if isinstance(features_json, dict) else json.loads(features_json)
             record = {"timestamp": timestamp, **features}
             records.append(record)
 
@@ -531,7 +532,7 @@ class DatabaseManager:
             "model_class": model_class,
             "hyperparameters": json.dumps(hyperparameters),
             "metrics": json.dumps(metrics),
-            "trained_at": training_info.get("trained_at", datetime.now()),
+            "trained_at": training_info.get("trained_at", datetime.now(timezone.utc)),
             "training_duration_seconds": training_info.get("training_duration_seconds"),
             "data_start": training_info.get("data_start"),
             "data_end": training_info.get("data_end"),

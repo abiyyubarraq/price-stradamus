@@ -16,9 +16,10 @@ from pathlib import Path
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
+from price_stradamus.config.constants import FEATURE_WARMUP_PERIOD
 from price_stradamus.config.settings import settings
 from price_stradamus.data.database import DatabaseManager
-from price_stradamus.data.features import FeatureEngineer
+from price_stradamus.data.stateful_features import StatefulFeatureEngineer
 from price_stradamus.data.fetcher import BinanceDataFetcher
 from price_stradamus.data.preprocessor import DataPreprocessor
 from price_stradamus.evaluation.backtester import Backtester
@@ -80,8 +81,8 @@ async def main():
         df = preprocessor.validate_ohlcv(df)
         df = preprocessor.handle_missing_values(df)
 
-        engineer = FeatureEngineer()
-        df_features = engineer.generate_all_features(df)
+        engineer = StatefulFeatureEngineer(warmup_period=FEATURE_WARMUP_PERIOD)
+        df_features = engineer.fit_transform(df)
 
         progress.update(task3, completed=True)
         console.print(

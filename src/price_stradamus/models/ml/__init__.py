@@ -2,4 +2,6 @@
 
 from __future__ import annotations
 
-__all__ = ["XGBoostModel", "RandomForestModel"]
+from price_stradamus.models.ml.xgboost import XGBoostModel
+
+__all__ = ["XGBoostModel"]

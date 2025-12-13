@@ -1,0 +1,5 @@
+feature_set,n_features,training_time,mae,rmse,mape,directional_accuracy,top_10_features
+all,60,0.37091827392578125,125.75825416666727,175.54921084843787,0.14121461490161263,39.189189189189186,"['typical_price', 'sma_7', 'rsi_14', 'stoch_k', 'adx_14', 'volume_sma_30', 'stoch_d', 'sma_14', 'obv', 'volume_sma_20']"
+core,19,0.1439805030822754,122.15017500000036,165.03682760346018,0.13714326827309,32.432432432432435,"['ema_7', 'atr_14', 'rsi_14', 'bb_percent', 'adx_14', 'roc_10', 'volume_price_trend', 'high_low_range', 'ema_200', 'hist_volatility_20']"
+correlation_95,37,0.17365074157714844,122.66401666666731,170.14289845665596,0.13773524663105505,37.83783783783784,"['typical_price', 'rsi_14', 'stoch_k', 'volume_sma_30', 'obv', 'volume_sma_20', 'bb_width', 'willr_14', 'volume_price_trend', 'adx_14']"
+correlation_90,34,0.16568279266357422,122.7315875000006,170.1876478971429,0.13781112942099039,37.83783783783784,"['typical_price', 'rsi_14', 'volume_sma_30', 'obv', 'volume_price_trend', 'stoch_k', 'bb_width', 'volume_sma_20', 'adx_14', 'quote_volume']"

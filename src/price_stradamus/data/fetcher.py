@@ -7,7 +7,7 @@ from the Binance API with rate limiting, retry logic, and error handling.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from types import TracebackType
 from typing import Any
 
@@ -36,14 +36,14 @@ class RateLimiter:
         self.max_requests = max_requests
         self.time_window = time_window
         self.tokens = max_requests
-        self.last_update = datetime.now()
+        self.last_update = datetime.now(timezone.utc)
         self._lock = asyncio.Lock()
 
     async def acquire(self) -> None:
         """Acquire a token, waiting if necessary."""
         async with self._lock:
             # Refill tokens based on time elapsed
-            now = datetime.now()
+            now = datetime.now(timezone.utc)
             elapsed = (now - self.last_update).total_seconds()
             self.tokens = min(
                 self.max_requests,

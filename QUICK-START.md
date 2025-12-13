@@ -115,12 +115,12 @@ python -m price_stradamus.cli.commands evaluate --model nbeats
 ### 3. Improve Features
 
 ```python
-# Add new technical indicator
-from price_stradamus.data.features import FeatureEngine
+# Generate features with proper fit-transform pattern
+from price_stradamus.data.stateful_features import StatefulFeatureEngineer
 
-engine = FeatureEngine()
-# Add your custom indicator
-engine.add_feature("my_indicator", calculate_my_indicator)
+engineer = StatefulFeatureEngineer()
+train_features = engineer.fit_transform(train_df)  # Fit on training
+test_features = engineer.transform(test_df)        # Transform test
 ```
 
 **Goal**: Better features = better predictions.
@@ -263,14 +263,14 @@ class MyAwesomeModel(BaseModel):
 ### Add a New Feature
 
 ```python
-from price_stradamus.data.features import FeatureEngine
+from price_stradamus.data.stateful_features import StatefulFeatureEngineer
 
-engine = FeatureEngine()
-
-@engine.register_feature("my_feature")
-def calculate_my_feature(df: pd.DataFrame) -> pd.Series:
-    """Calculate custom feature."""
-    return df["close"].rolling(20).mean()
+# Extend StatefulFeatureEngineer for custom features
+class CustomFeatureEngineer(StatefulFeatureEngineer):
+    def add_custom_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Add your custom features."""
+        df["my_feature"] = df["close"].rolling(20).mean()
+        return df
 ```
 
 ### Run Specific Tests
