@@ -917,7 +917,7 @@ for name, model in models.items():
 
 **Next Module:** [09: Classical and ML Models →](09-classical-and-ml-models.md)
 
-Learn about ARIMA, Prophet, XGBoost, and Random Forest.
+Learn about ARIMA, Prophet, and XGBoost.
 
 ---
 

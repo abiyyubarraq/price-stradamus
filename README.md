@@ -71,7 +71,7 @@ Price Stradamus is a time series forecasting system designed to predict Bitcoin 
 - **Multiple Model Types**
   - Neural Networks: N-BEATS, LSTM, TCN, Temporal Fusion Transformer
   - Classical Models: ARIMA, Facebook Prophet
-  - ML Models: XGBoost, Random Forest, AdaBoost, SVM
+  - ML Models: XGBoost, AdaBoost, SVM
   - AutoML: Automated model selection and ensemble methods
 
 - **Comprehensive Data Pipeline**
@@ -297,7 +297,7 @@ print(f"MAE: {metrics.mae:.2f}, Directional Accuracy: {metrics.directional_accur
 - Fast training and inference
 - Often competitive with neural networks
 
-**Random Forest, AdaBoost, SVM**
+**AdaBoost, SVM**
 - Traditional ML approaches
 - Good baselines for comparison
 
@@ -322,7 +322,6 @@ print(f"MAE: {metrics.mae:.2f}, Directional Accuracy: {metrics.directional_accur
 | **XGBoost** | 58.34 | 85.12 | 0.12 | 51.2% | ~30 sec |
 | **ARIMA** | 72.45 | 98.67 | 0.15 | 50.4% | ~10 sec |
 | **Prophet** | 65.82 | 91.23 | 0.13 | 50.8% | ~20 sec |
-| **Random Forest** | 61.23 | 88.45 | 0.12 | 50.9% | ~45 sec |
 
 *Results from walk-forward validation on 50 epochs. GPU: NVIDIA RTX 3080. Your results may vary.*
 

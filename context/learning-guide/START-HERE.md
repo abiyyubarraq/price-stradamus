@@ -49,7 +49,7 @@ A comprehensive, professionally-written learning guide specifically designed for
 - ✅ 8 different model types:
   - Neural: N-BEATS, LSTM, TCN, TFT
   - Classical: ARIMA, Prophet
-  - ML: XGBoost, Random Forest
+  - ML: XGBoost
 - ✅ Train and evaluate models
 - ✅ Use all CLI commands
 - ✅ Best practices

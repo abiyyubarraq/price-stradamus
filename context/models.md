@@ -430,8 +430,6 @@ where:
 
 ---
 
-### Random Forest
-
 **Description**:
 - Ensemble of decision trees
 - Bootstrap aggregating (bagging)
@@ -537,7 +535,7 @@ START
   │
   ├─ Need interpretability? ──YES─→ TFT (attention) or ARIMA
   │
-  ├─ Have GPU? ──NO─→ XGBoost or Random Forest
+  ├─ Have GPU? ──NO─→ XGBoost
   │
   ├─ Large dataset (>1M)? ──YES─→ TCN or N-BEATS
   │

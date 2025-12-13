@@ -95,7 +95,6 @@ results = model.fit()
 | Model | Strengths | Best Use Case |
 |-------|-----------|---------------|
 | **XGBoost** | Fast, handles missing data, feature importance | Structured data with many features |
-| **Random Forest** | Robust, less overfitting, easy to tune | When you have engineered features |
 
 **Node.js ML analogy:**
 ```typescript
@@ -567,9 +566,9 @@ print(f"N-BEATS: {nbeats_mae:.2f}")
 |----------|-------------------|-----|
 | <1000 data points | ARIMA, Prophet | Not enough data for neural networks |
 | Clear seasonality | Prophet | Designed for seasonal patterns |
-| Many engineered features | XGBoost, Random Forest | Leverages feature engineering |
+| Many engineered features | XGBoost | Leverages feature engineering |
 | Raw price data only | N-BEATS, LSTM | Can learn features automatically |
-| Need interpretability | ARIMA, Random Forest | Can explain decisions |
+| Need interpretability | ARIMA | Can explain decisions |
 | Large dataset (>10k) | N-BEATS, TFT, TCN | Neural networks shine with data |
 | Multi-step predictions | N-BEATS, TFT | Designed for multi-horizon |
 | Real-time inference | TCN, XGBoost | Fast prediction time |

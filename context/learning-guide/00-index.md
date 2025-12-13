@@ -88,7 +88,6 @@ This guide is structured as a progressive learning journey. Follow the modules i
    - ARIMA (statistical forecasting)
    - Prophet (Facebook's forecaster)
    - XGBoost (gradient boosting)
-   - Random Forest (decision trees)
    - **Time: 3-4 hours**
 
 ### Phase 4: Evaluation & Integration (Week 4)

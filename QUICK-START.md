@@ -11,7 +11,7 @@
 ✅ **8 Forecasting Models**
 - Neural: N-BEATS, LSTM, TCN, TFT
 - Classical: ARIMA, Prophet
-- ML: XGBoost, Random Forest
+- ML: XGBoost
 
 ✅ **Data Pipeline**
 - Fetch from Binance API (async)
@@ -153,7 +153,7 @@ price-stradamus/
 │   ├── models/              # 8 ML models
 │   │   ├── neural/          # N-BEATS, LSTM, TCN, TFT
 │   │   ├── classical/       # ARIMA, Prophet
-│   │   └── ml/              # XGBoost, Random Forest
+│   │   └── ml/              # XGBoost
 │   ├── evaluation/          # Backtesting, metrics
 │   ├── utils/               # Logging, helpers
 │   └── cli/                 # Command-line interface

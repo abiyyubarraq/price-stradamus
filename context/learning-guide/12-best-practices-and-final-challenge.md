@@ -734,7 +734,7 @@ asyncio.run(service.run())
 9. **Implement Models**
    - Neural: N-BEATS, LSTM, TCN
    - Classical: ARIMA, Prophet
-   - ML: XGBoost, Random Forest
+   - ML: XGBoost
 
 **Checkpoint**: Can you train and save a model?
 
@@ -826,7 +826,7 @@ After completing this learning guide, you now know:
 ### Machine Learning
 - ✅ Neural networks (N-BEATS, LSTM, TCN, TFT)
 - ✅ Classical models (ARIMA, Prophet)
-- ✅ ML models (XGBoost, Random Forest)
+- ✅ ML models (XGBoost)
 - ✅ Training and validation
 - ✅ Hyperparameter tuning
 

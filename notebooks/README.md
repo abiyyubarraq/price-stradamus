@@ -85,7 +85,7 @@ Comprehensive analysis of Bitcoin 1-minute data:
 Train and compare all 8 available models:
 - **Neural**: N-BEATS, LSTM, TCN, TFT
 - **Classical**: ARIMA, Prophet
-- **ML**: XGBoost, Random Forest
+- **ML**: XGBoost
 
 **Methodology**: Same data split (70/15/15), same hyperparameters
 
