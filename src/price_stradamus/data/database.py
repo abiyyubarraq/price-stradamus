@@ -331,10 +331,14 @@ class DatabaseManager:
             for col in feature_columns:
                 value = row[col]
                 # Check for any type of missing value (None, NaN, pd.NA, etc.)
-                if value is None or pd.isna(value):
+                # bool() wrapper ensures scalar boolean for conditional (handles pd.isna type inference)
+                try:
+                    if bool(pd.isna(value)):
+                        features_dict[col] = None
+                    else:
+                        features_dict[col] = float(value)
+                except (TypeError, ValueError):
                     features_dict[col] = None
-                else:
-                    features_dict[col] = float(value)
 
             record = {
                 "timestamp": row["timestamp"],

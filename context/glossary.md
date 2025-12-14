@@ -332,9 +332,6 @@ Using probabilistic model to intelligently select hyperparameters.
 **Optuna**
 Python library for hyperparameter optimization.
 
-**auto-sklearn**
-Automated machine learning library built on scikit-learn.
-
 **Neural Architecture Search (NAS)**
 Automatically designing neural network architectures.
 

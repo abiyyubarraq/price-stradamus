@@ -100,7 +100,7 @@ Build a production-ready, scalable Bitcoin price prediction system that achieves
 
 ### Features
 
-- [ ] Integrate auto-sklearn for ML models
+- [ ] Integrate AutoML for ML models
 - [ ] Automated feature selection
 - [ ] Hyperparameter optimization with Optuna
 - [ ] Ensemble model creation
@@ -476,9 +476,8 @@ class Phase2Rollback:
     @staticmethod
     def partial_rollback() -> None:
         """Keep experiment tracking, disable AutoML."""
-        # 1. Disable auto-sklearn integration
-        # 2. Keep MLflow for manual experiments
-        # 3. Use manual hyperparameter selection
+        # 1. Keep MLflow for manual experiments
+        # 2. Use manual hyperparameter selection
 ```
 
 ### Technical Debt Budget

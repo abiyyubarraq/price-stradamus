@@ -570,7 +570,7 @@ python -c "import price_stradamus; print(price_stradamus.__version__)"
 All planned Phase 1 models implemented!
 
 ### Phase 2 Features (Planned)
-- [ ] AutoML integration (auto-sklearn, Optuna)
+- [ ] AutoML integration (Optuna)
 - [ ] Hyperparameter optimization automation
 - [ ] Ensemble methods (stacking, voting, blending)
 - [ ] Advanced prediction strategies
@@ -652,7 +652,7 @@ Registered Models (8 total)
 - Comprehensive testing (93 test cases)
 
 ### What's Next (Phase 2)
-- AutoML integration (Optuna, auto-sklearn)
+- AutoML integration (Optuna)
 - Hyperparameter optimization
 - Ensemble methods
 - Real-time predictions

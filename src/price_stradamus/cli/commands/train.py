@@ -21,19 +21,21 @@ Example:
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 
 import numpy as np
 import pandas as pd
 import typer
+from darts import TimeSeries
 from loguru import logger
 from rich.console import Console
 from rich.table import Table
 
 from price_stradamus.config.constants import (
-    DEFAULT_TRAIN_WINDOW_DAYS,
     DEFAULT_TEST_WINDOW_DAYS,
+    DEFAULT_TRAIN_WINDOW_DAYS,
     DEFAULT_WALK_FORWARD_FOLDS,
     FEATURE_WARMUP_PERIOD,
     REALISTIC_DIR_ACC_MAX,
@@ -45,7 +47,6 @@ from price_stradamus.data.database import DatabaseManager
 from price_stradamus.data.preprocessor import DataPreprocessor
 from price_stradamus.data.stateful_features import StatefulFeatureEngineer
 from price_stradamus.evaluation.financial_metrics import (
-    FinancialMetricsCalculator,
     TradingCosts,
 )
 from price_stradamus.evaluation.metrics import MetricsCalculator
@@ -164,7 +165,7 @@ def train(
 
             if use_walk_forward:
                 console.print(
-                    f"\n[bold green]Using walk-forward validation[/bold green]"
+                    "\n[bold green]Using walk-forward validation[/bold green]"
                 )
                 console.print(
                     f"  Folds: {folds}, Train window: {train_window} days, "
@@ -204,10 +205,12 @@ def train(
                     for fmt in date_formats:
                         try:
                             dt = datetime.strptime(date_str, fmt)
-                            return dt.replace(tzinfo=timezone.utc)
+                            return dt.replace(tzinfo=UTC)
                         except ValueError:
                             continue
-                    console.print(f"[red]✗ Invalid {param_name} format: {date_str}[/red]")
+                    console.print(
+                        f"[red]✗ Invalid {param_name} format: {date_str}[/red]"
+                    )
                     console.print(
                         "[red]  Use format: 'YYYY-MM-DD HH:MM' or 'DD/MM/YYYY HH:MM'[/red]"
                     )
@@ -220,10 +223,14 @@ def train(
 
                 # Validate datetime windows
                 if train_start_dt and train_end_dt and train_start_dt >= train_end_dt:
-                    console.print("[red]✗ Training start must be before training end[/red]")
+                    console.print(
+                        "[red]✗ Training start must be before training end[/red]"
+                    )
                     raise typer.Exit(1)
                 if val_start_dt and val_end_dt and val_start_dt >= val_end_dt:
-                    console.print("[red]✗ Validation start must be before validation end[/red]")
+                    console.print(
+                        "[red]✗ Validation start must be before validation end[/red]"
+                    )
                     raise typer.Exit(1)
                 if train_end_dt and val_start_dt and val_start_dt <= train_end_dt:
                     console.print(
@@ -248,7 +255,9 @@ def train(
                 fetch_end = val_end_dt or train_end_dt
                 if fetch_start:
                     fetch_start = fetch_start - timedelta(days=30)
-                console.print(f"[cyan]Fetching data window: {fetch_start} to {fetch_end}[/cyan]")
+                console.print(
+                    f"[cyan]Fetching data window: {fetch_start} to {fetch_end}[/cyan]"
+                )
                 df = await db.get_ohlcv(
                     symbol, timeframe, start_date=fetch_start, end_date=fetch_end
                 )
@@ -402,8 +411,8 @@ async def _train_walk_forward(
         )
 
         # Convert to Darts TimeSeries
-        train_ts = engineer.to_darts_timeseries(train_features, value_cols=["close"])
-        test_ts = engineer.to_darts_timeseries(test_features, value_cols=["close"])
+        train_ts = cast(TimeSeries, engineer.to_darts_timeseries(train_features, value_cols=["close"]))
+        test_ts = cast(TimeSeries, engineer.to_darts_timeseries(test_features, value_cols=["close"]))
 
         # Create and train model
         console.print(f"  Training {model_name}...")
@@ -443,7 +452,9 @@ async def _train_walk_forward(
         console.print(f"  [green]✓ Fold {fold + 1} Results:[/green]")
         console.print(f"    MAE: {fold_metrics['mae']:.4f}")
         console.print(f"    RMSE: {fold_metrics['rmse']:.4f}")
-        console.print(f"    Directional Accuracy: {fold_metrics['directional_accuracy']:.2f}%")
+        console.print(
+            f"    Directional Accuracy: {fold_metrics['directional_accuracy']:.2f}%"
+        )
         console.print(f"    Net P&L: ${fold_metrics['fin_net_pnl']:.2f}")
         console.print(f"    Sharpe Ratio: {fold_metrics['fin_sharpe_ratio']:.2f}")
 
@@ -476,7 +487,9 @@ async def _train_quick(
     val_df = df.iloc[train_size : train_size + val_size].copy()
     test_df = df.iloc[train_size + val_size :].copy()
 
-    console.print(f"\n  Split: train={len(train_df)}, val={len(val_df)}, test={len(test_df)}")
+    console.print(
+        f"\n  Split: train={len(train_df)}, val={len(val_df)}, test={len(test_df)}"
+    )
 
     # Generate features with fit-transform pattern
     console.print("  Generating features...")
@@ -486,14 +499,12 @@ async def _train_quick(
     val_features = engineer.transform(val_df, drop_warmup=False)
     test_features = engineer.transform(test_df, drop_warmup=False)
 
-    console.print(
-        f"  [green]✓ Generated {len(engineer.feature_list)} features[/green]"
-    )
+    console.print(f"  [green]✓ Generated {len(engineer.feature_list)} features[/green]")
 
     # Convert to time series
-    train_ts = engineer.to_darts_timeseries(train_features, value_cols=["close"])
-    val_ts = engineer.to_darts_timeseries(val_features, value_cols=["close"])
-    test_ts = engineer.to_darts_timeseries(test_features, value_cols=["close"])
+    train_ts = cast(TimeSeries, engineer.to_darts_timeseries(train_features, value_cols=["close"]))
+    val_ts = cast(TimeSeries, engineer.to_darts_timeseries(val_features, value_cols=["close"]))
+    test_ts = cast(TimeSeries, engineer.to_darts_timeseries(test_features, value_cols=["close"]))
 
     # Train model
     console.print(f"\n  Creating and training {model_name}...")
@@ -585,8 +596,8 @@ async def _train_datetime_windows(
     console.print(f"  [green]✓ Generated {len(engineer.feature_list)} features[/green]")
 
     # Convert to time series
-    train_ts = engineer.to_darts_timeseries(train_features, value_cols=["close"])
-    val_ts = engineer.to_darts_timeseries(val_features, value_cols=["close"])
+    train_ts = cast(TimeSeries, engineer.to_darts_timeseries(train_features, value_cols=["close"]))
+    val_ts = cast(TimeSeries, engineer.to_darts_timeseries(val_features, value_cols=["close"]))
 
     # Train model
     console.print(f"\n  Creating and training {model_name}...")
@@ -630,7 +641,9 @@ def _display_aggregated_results(
     all_metrics: list[dict[str, float]], costs: TradingCosts
 ) -> None:
     """Display aggregated walk-forward results with confidence intervals."""
-    console.print("\n[bold green]═══ Walk-Forward Results (Aggregated) ═══[/bold green]")
+    console.print(
+        "\n[bold green]═══ Walk-Forward Results (Aggregated) ═══[/bold green]"
+    )
 
     # Calculate mean and std for key metrics
     key_metrics = [
@@ -668,14 +681,18 @@ def _display_aggregated_results(
     console.print(table)
 
     # Transaction costs summary
-    console.print(f"\n[dim]Transaction costs: {costs.commission_pct*100:.2f}% commission + "
-                  f"{costs.slippage_pct*100:.2f}% slippage = "
-                  f"{costs.round_trip_cost*100:.2f}% per round trip[/dim]")
+    console.print(
+        f"\n[dim]Transaction costs: {costs.commission_pct * 100:.2f}% commission + "
+        f"{costs.slippage_pct * 100:.2f}% slippage = "
+        f"{costs.round_trip_cost * 100:.2f}% per round trip[/dim]"
+    )
 
     # Check for suspicious results
     avg_dir_acc = np.mean([m.get("directional_accuracy", 0) for m in all_metrics])
     avg_sharpe = np.mean([m.get("fin_sharpe_ratio", 0) for m in all_metrics])
-    _check_suspicious_results({"directional_accuracy": avg_dir_acc, "fin_sharpe_ratio": avg_sharpe})
+    _check_suspicious_results(
+        {"directional_accuracy": float(avg_dir_acc), "fin_sharpe_ratio": float(avg_sharpe)}
+    )
 
 
 def _display_single_results(metrics: dict[str, float], costs: TradingCosts) -> None:
@@ -706,8 +723,10 @@ def _display_single_results(metrics: dict[str, float], costs: TradingCosts) -> N
     console.print(f"  Profit Factor:{metrics['fin_profit_factor']:.2f}")
 
     # Transaction costs summary
-    console.print(f"\n[dim]Costs: {costs.commission_pct*100:.2f}% commission + "
-                  f"{costs.slippage_pct*100:.2f}% slippage[/dim]")
+    console.print(
+        f"\n[dim]Costs: {costs.commission_pct * 100:.2f}% commission + "
+        f"{costs.slippage_pct * 100:.2f}% slippage[/dim]"
+    )
 
 
 def _check_suspicious_results(metrics: dict[str, float]) -> None:
@@ -722,7 +741,9 @@ def _check_suspicious_results(metrics: dict[str, float]) -> None:
         console.print(
             "[red]  This may indicate data leakage. Realistic BTC 1-min accuracy is 51-55%.[/red]"
         )
-        console.print("[red]  Please verify your train/test split has no overlap.[/red]")
+        console.print(
+            "[red]  Please verify your train/test split has no overlap.[/red]"
+        )
     elif dir_acc > REALISTIC_DIR_ACC_MAX:
         console.print(
             f"\n[yellow]⚠️  Note: Directional accuracy ({dir_acc:.1f}%) is above typical range.[/yellow]"
@@ -733,4 +754,6 @@ def _check_suspicious_results(metrics: dict[str, float]) -> None:
         console.print(
             f"\n[bold red]⚠️  WARNING: Sharpe ratio ({sharpe:.2f}) is suspiciously high![/bold red]"
         )
-        console.print("[red]  Realistic Sharpe for BTC is 0.5-2.0. Check for bugs.[/red]")
+        console.print(
+            "[red]  Realistic Sharpe for BTC is 0.5-2.0. Check for bugs.[/red]"
+        )

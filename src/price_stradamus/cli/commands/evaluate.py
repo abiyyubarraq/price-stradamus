@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import cast
 
 import numpy as np
 import pandas as pd
 import typer
+from darts import TimeSeries
 from loguru import logger
 from rich.console import Console
 from rich.table import Table
@@ -17,8 +18,8 @@ from rich.table import Table
 from price_stradamus.config.constants import FEATURE_WARMUP_PERIOD
 from price_stradamus.config.settings import settings
 from price_stradamus.data.database import DatabaseManager
-from price_stradamus.data.stateful_features import StatefulFeatureEngineer
 from price_stradamus.data.preprocessor import DataPreprocessor
+from price_stradamus.data.stateful_features import StatefulFeatureEngineer
 from price_stradamus.evaluation.backtester import Backtester
 from price_stradamus.evaluation.metrics import MetricsCalculator
 
@@ -125,14 +126,16 @@ def evaluate(
                     "%d/%m/%Y %H:%M:%S",
                 ]
 
-                def parse_datetime(date_str: str | None, param_name: str) -> datetime | None:
+                def parse_datetime(
+                    date_str: str | None, param_name: str
+                ) -> datetime | None:
                     if not date_str:
                         return None
                     for fmt in date_formats:
                         try:
                             # Parse and make UTC-aware to match database timestamps
                             dt = datetime.strptime(date_str, fmt)
-                            return dt.replace(tzinfo=timezone.utc)
+                            return dt.replace(tzinfo=UTC)
                         except ValueError:
                             continue
                     console.print(
@@ -156,9 +159,7 @@ def evaluate(
                     raise typer.Exit(1)
 
                 if test_start_dt and test_end_dt and test_start_dt >= test_end_dt:
-                    console.print(
-                        "[red]✗ Test start must be before test end[/red]"
-                    )
+                    console.print("[red]✗ Test start must be before test end[/red]")
                     raise typer.Exit(1)
 
                 if train_end_dt and test_start_dt and test_start_dt <= train_end_dt:
@@ -212,9 +213,7 @@ def evaluate(
                         f"[cyan]Fetching data from {fetch_start} to {fetch_end} (includes 30-day buffer)[/cyan]"
                     )
                 else:
-                    console.print(
-                        f"[cyan]Fetching all data up to {fetch_end}[/cyan]"
-                    )
+                    console.print(f"[cyan]Fetching all data up to {fetch_end}[/cyan]")
 
                 df = await db.get_ohlcv(
                     symbol, timeframe, start_date=fetch_start, end_date=fetch_end
@@ -244,14 +243,21 @@ def evaluate(
             df_features = engineer.fit_transform(df)
 
             # Ensure timestamp is datetime for filtering
-            df_features["timestamp"] = pd.to_datetime(df_features["timestamp"], utc=True)
+            df_features["timestamp"] = pd.to_datetime(
+                df_features["timestamp"], utc=True
+            )
 
-            ts = engineer.to_darts_timeseries(df_features, value_cols=["close"])
+            ts = cast(TimeSeries, engineer.to_darts_timeseries(df_features, value_cols=["close"]))
 
             # Create or load model
             if model_path:
                 # Load saved model
                 console.print(f"Loading model from {model_path}...")
+
+                # At this point, model_name is guaranteed to be a string (extracted from filename)
+                if model_name is None:
+                    console.print("[red]✗ Internal error: model_name is None[/red]")
+                    raise typer.Exit(1)
 
                 if not ModelRegistry.is_registered(model_name):
                     console.print(f"[red]✗ Unknown model type: {model_name}[/red]")
@@ -299,7 +305,9 @@ def evaluate(
 
                     # Create combined time series (train + test)
                     combined_df = pd.concat([train_df, test_df], ignore_index=True)
-                    ts_eval = engineer.to_darts_timeseries(combined_df, value_cols=["close"])
+                    ts_eval = cast(TimeSeries, engineer.to_darts_timeseries(
+                        combined_df, value_cols=["close"]
+                    ))
 
                     console.print(
                         f"[green]✓ Using {len(train_df)} candles for context, {len(test_df)} for testing[/green]"
@@ -308,16 +316,34 @@ def evaluate(
                     # Debug: Show the boundary between train and test
                     console.print("\n[cyan]Debug Information:[/cyan]")
                     console.print(f"[cyan]  Train data: {len(train_df)} candles[/cyan]")
-                    console.print(f"[cyan]    First timestamp: {train_df['timestamp'].values[0]}[/cyan]")
-                    console.print(f"[cyan]    Last timestamp:  {train_df['timestamp'].values[-1]}[/cyan]")
+                    console.print(
+                        f"[cyan]    First timestamp: {train_df['timestamp'].values[0]}[/cyan]"
+                    )
+                    console.print(
+                        f"[cyan]    Last timestamp:  {train_df['timestamp'].values[-1]}[/cyan]"
+                    )
                     console.print(f"[cyan]  Test data: {len(test_df)} candles[/cyan]")
-                    console.print(f"[cyan]    First timestamp: {test_df['timestamp'].values[0]}[/cyan]")
-                    console.print(f"[cyan]    Last timestamp:  {test_df['timestamp'].values[-1]}[/cyan]")
-                    console.print(f"[cyan]  Model input_chunk_length: {input_length}[/cyan]")
-                    console.print(f"[cyan]  Combined TimeSeries length: {len(ts_eval)}[/cyan]")
-                    console.print(f"[cyan]    First timestamp: {ts_eval.time_index[0]}[/cyan]")
-                    console.print(f"[cyan]    Timestamp at index {len(train_df)}: {ts_eval.time_index[len(train_df)]}[/cyan]")
-                    console.print(f"[cyan]    Last timestamp:  {ts_eval.time_index[-1]}[/cyan]")
+                    console.print(
+                        f"[cyan]    First timestamp: {test_df['timestamp'].values[0]}[/cyan]"
+                    )
+                    console.print(
+                        f"[cyan]    Last timestamp:  {test_df['timestamp'].values[-1]}[/cyan]"
+                    )
+                    console.print(
+                        f"[cyan]  Model input_chunk_length: {input_length}[/cyan]"
+                    )
+                    console.print(
+                        f"[cyan]  Combined TimeSeries length: {len(ts_eval)}[/cyan]"
+                    )
+                    console.print(
+                        f"[cyan]    First timestamp: {ts_eval.time_index[0]}[/cyan]"
+                    )
+                    console.print(
+                        f"[cyan]    Timestamp at index {len(train_df)}: {ts_eval.time_index[len(train_df)]}[/cyan]"
+                    )
+                    console.print(
+                        f"[cyan]    Last timestamp:  {ts_eval.time_index[-1]}[/cyan]"
+                    )
 
                     # Check if model needs more historical context
                     if len(train_df) < input_length:
@@ -332,8 +358,12 @@ def evaluate(
 
                     # Set start index to where test data begins
                     start_idx = len(train_df)
-                    console.print(f"\n[bold cyan]Prediction will start at index {start_idx}[/bold cyan]")
-                    console.print(f"[bold cyan]  This corresponds to timestamp: {ts_eval.time_index[start_idx]}[/bold cyan]")
+                    console.print(
+                        f"\n[bold cyan]Prediction will start at index {start_idx}[/bold cyan]"
+                    )
+                    console.print(
+                        f"[bold cyan]  This corresponds to timestamp: {ts_eval.time_index[start_idx]}[/bold cyan]"
+                    )
                 else:
                     # Use all available data
                     ts_eval = ts
@@ -356,7 +386,7 @@ def evaluate(
                     historical = ts_eval[:current_idx]
 
                     # Predict next N steps
-                    pred = model_instance.predict(n=output_length, series=historical)
+                    pred = cast(TimeSeries, model_instance.predict(n=output_length, series=historical))
 
                     # Get actual values
                     actual = ts_eval[current_idx : current_idx + output_length]
@@ -376,7 +406,9 @@ def evaluate(
                 if test_start_dt and test_end_dt and len(predictions_list) > 0:
                     last_prediction_time = pd.Timestamp(timestamps_list[-1][-1])
                     if last_prediction_time < test_end_dt:
-                        uncovered_minutes = int((test_end_dt - last_prediction_time).total_seconds() / 60)
+                        uncovered_minutes = int(
+                            (test_end_dt - last_prediction_time).total_seconds() / 60
+                        )
                         if uncovered_minutes > 0:
                             console.print(
                                 f"[yellow]Note: Last {uncovered_minutes} minutes not predicted "
@@ -441,6 +473,11 @@ def evaluate(
 
             else:
                 # Create new model for training
+                # At this point, model_name is guaranteed to be a string (from model option)
+                if model_name is None:
+                    console.print("[red]✗ Internal error: model_name is None[/red]")
+                    raise typer.Exit(1)
+
                 console.print(f"Creating {model_name} model...")
                 model_instance = ModelRegistry.create_model(
                     model_name, input_chunk_length=60, output_chunk_length=5

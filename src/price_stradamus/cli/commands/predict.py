@@ -5,9 +5,11 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import cast
 
 import pandas as pd
 import typer
+from darts import TimeSeries
 from loguru import logger
 from rich.console import Console
 from rich.table import Table
@@ -15,8 +17,8 @@ from rich.table import Table
 from price_stradamus.config.constants import FEATURE_WARMUP_PERIOD
 from price_stradamus.config.settings import settings
 from price_stradamus.data.database import DatabaseManager
-from price_stradamus.data.stateful_features import StatefulFeatureEngineer
 from price_stradamus.data.preprocessor import DataPreprocessor
+from price_stradamus.data.stateful_features import StatefulFeatureEngineer
 
 # Import models to register them
 from price_stradamus.models.classical.arima import ARIMAModel  # noqa: F401
@@ -200,7 +202,7 @@ def predict(
 
         # Convert to time series
         console.print("Creating time series...")
-        ts = engineer.to_darts_timeseries(df_features, value_cols=["close"])
+        ts = cast(TimeSeries, engineer.to_darts_timeseries(df_features, value_cols=["close"]))
 
         # If backtesting, slice data to prevent data leakage
         historical_cutoff_ts = ts  # For visualization
@@ -273,7 +275,7 @@ def predict(
         # Make predictions
         console.print(f"\nMaking {steps}-step predictions...")
         try:
-            predictions = model_instance.predict(n=steps, series=ts)
+            predictions = cast(TimeSeries, model_instance.predict(n=steps, series=ts))
         except Exception as e:
             # If prediction fails, it might be due to steps > output_chunk_length
             if output_chunk_length and steps > output_chunk_length:

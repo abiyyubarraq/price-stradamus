@@ -20,7 +20,6 @@ Phase 1: Core System ✅
 └─ CLI interface
 
 Phase 2: AutoML Integration ⏳
-├─ auto-sklearn integration
 ├─ Automated hyperparameter tuning (Optuna)
 ├─ Ensemble methods
 └─ Experiment tracking (MLflow)

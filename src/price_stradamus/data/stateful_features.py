@@ -69,7 +69,7 @@ class FeatureStatistics:
         }
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "FeatureStatistics":
+    def from_dict(cls, data: dict[str, Any]) -> FeatureStatistics:
         """Create from dictionary."""
         return cls(
             means=data.get("means", {}),
@@ -134,7 +134,7 @@ class StatefulFeatureEngineer:
             f"StatefulFeatureEngineer initialized (warmup_period={warmup_period})"
         )
 
-    def fit(self, df: pd.DataFrame) -> "StatefulFeatureEngineer":
+    def fit(self, df: pd.DataFrame) -> StatefulFeatureEngineer:
         """Fit feature statistics on training data only.
 
         This method:
@@ -169,7 +169,7 @@ class StatefulFeatureEngineer:
                 f"reduce warmup_period."
             )
 
-        df_features = df_features.iloc[self.warmup_period:].copy()
+        df_features = df_features.iloc[self.warmup_period :].copy()
 
         # Learn statistics from training data
         numeric_cols = df_features.select_dtypes(include=[np.number]).columns
@@ -237,7 +237,7 @@ class StatefulFeatureEngineer:
                     f"({self.warmup_period}). Returning empty DataFrame."
                 )
                 return df_features.iloc[0:0]
-            df_features = df_features.iloc[self.warmup_period:].copy()
+            df_features = df_features.iloc[self.warmup_period :].copy()
 
         # Normalize using training statistics if requested
         if normalize:
@@ -292,8 +292,12 @@ class StatefulFeatureEngineer:
         # === Forward returns for prediction target ===
         # returns_1 = (close[t+1] - close[t]) / close[t]
         # Shift -1 to get FUTURE return (will be dropped during dropna to avoid leakage)
-        df_features["returns_1"] = df["close"].pct_change().shift(-1)  # Single-step return
-        df_features["returns_5"] = (df["close"].shift(-5) / df["close"] - 1)  # 5-step cumulative return
+        df_features["returns_1"] = (
+            df["close"].pct_change().shift(-1)
+        )  # Single-step return
+        df_features["returns_5"] = (
+            df["close"].shift(-5) / df["close"] - 1
+        )  # 5-step cumulative return
 
         # === Moving averages (rolling - uses only past data) ===
         for period in TECHNICAL_INDICATORS["sma_periods"]:
@@ -330,8 +334,11 @@ class StatefulFeatureEngineer:
         # Stochastic
         stoch_config = TECHNICAL_INDICATORS["stochastic"]
         stoch = ta.stoch(
-            df["high"], df["low"], df["close"],
-            k=stoch_config["k"], d=stoch_config["d"],
+            df["high"],
+            df["low"],
+            df["close"],
+            k=stoch_config["k"],
+            d=stoch_config["d"],
         )
         if stoch is not None:
             stoch_cols = stoch.columns.tolist()
@@ -369,7 +376,9 @@ class StatefulFeatureEngineer:
 
         # Bollinger Bands
         bb_config = TECHNICAL_INDICATORS["bollinger_bands"]
-        bbands = ta.bbands(df["close"], length=bb_config["period"], std=bb_config["std"])
+        bbands = ta.bbands(
+            df["close"], length=bb_config["period"], std=bb_config["std"]
+        )
         if bbands is not None:
             bb_cols = bbands.columns.tolist()
             for col in bb_cols:
@@ -381,18 +390,22 @@ class StatefulFeatureEngineer:
                     df_features["bb_lower"] = bbands[col]
 
             if "bb_upper" in df_features.columns and "bb_lower" in df_features.columns:
-                df_features["bb_width"] = df_features["bb_upper"] - df_features["bb_lower"]
+                df_features["bb_width"] = (
+                    df_features["bb_upper"] - df_features["bb_lower"]
+                )
                 denom = df_features["bb_upper"] - df_features["bb_lower"]
-                df_features["bb_percent"] = (df["close"] - df_features["bb_lower"]) / denom
+                df_features["bb_percent"] = (
+                    df["close"] - df_features["bb_lower"]
+                ) / denom
 
         # Rolling std
         for period in [10, 20, 30]:
             df_features[f"std_{period}"] = df["close"].rolling(window=period).std()
 
         # Historical volatility
-        df_features["hist_volatility_20"] = (
-            df_features["log_returns"].rolling(window=20).std() * np.sqrt(252 * 24 * 60)
-        )
+        df_features["hist_volatility_20"] = df_features["log_returns"].rolling(
+            window=20
+        ).std() * np.sqrt(252 * 24 * 60)
 
         # === Volume indicators ===
         df_features["obv"] = ta.obv(df["close"], df["volume"])
@@ -402,7 +415,9 @@ class StatefulFeatureEngineer:
 
         df_features["volume_change"] = df["volume"].diff()
         df_features["volume_change_pct"] = df["volume"].pct_change()
-        df_features["volume_ratio"] = df["volume"] / df["volume"].rolling(window=20).mean()
+        df_features["volume_ratio"] = (
+            df["volume"] / df["volume"].rolling(window=20).mean()
+        )
         df_features["volume_price_trend"] = ta.pvt(df["close"], df["volume"])
 
         # === Trend indicators ===
@@ -432,7 +447,9 @@ class StatefulFeatureEngineer:
                     df_features[f"aroon_osc_{aroon_period}"] = aroon[col]
 
         # Supertrend
-        supertrend = ta.supertrend(df["high"], df["low"], df["close"], length=10, multiplier=3)
+        supertrend = ta.supertrend(
+            df["high"], df["low"], df["close"], length=10, multiplier=3
+        )
         if supertrend is not None:
             st_cols = supertrend.columns.tolist()
             for col in st_cols:
@@ -517,7 +534,7 @@ class StatefulFeatureEngineer:
         value_cols: list[str] | None = None,
         fill_missing: bool = True,
         covariates: list[str] | None = None,
-    ) -> TimeSeries | tuple[TimeSeries, TimeSeries]:
+    ) -> TimeSeries | tuple[TimeSeries, TimeSeries | None]:
         """Convert DataFrame to Darts TimeSeries with optional covariates.
 
         Args:
@@ -550,9 +567,7 @@ class StatefulFeatureEngineer:
             df_ts = df_ts.set_index("timestamp")
 
         if not isinstance(df_ts.index, pd.DatetimeIndex):
-            raise ValueError(
-                "DataFrame must have DatetimeIndex or 'timestamp' column"
-            )
+            raise ValueError("DataFrame must have DatetimeIndex or 'timestamp' column")
 
         # Default to returns instead of close (for ML models)
         if value_cols is None:
@@ -565,7 +580,9 @@ class StatefulFeatureEngineer:
         df_target = df_target.dropna()
 
         if df_target.empty:
-            raise ValueError("No valid target data remaining after handling missing values")
+            raise ValueError(
+                "No valid target data remaining after handling missing values"
+            )
 
         target_ts = TimeSeries.from_dataframe(
             df_target,
@@ -594,22 +611,30 @@ class StatefulFeatureEngineer:
                 # Remove columns that are entirely NaN (can't be used)
                 cols_to_drop = df_cov.columns[df_cov.isna().all()].tolist()
                 if cols_to_drop:
-                    logger.warning(f"Dropping {len(cols_to_drop)} all-NaN covariate columns: {cols_to_drop}")
+                    logger.warning(
+                        f"Dropping {len(cols_to_drop)} all-NaN covariate columns: {cols_to_drop}"
+                    )
                     df_cov = df_cov.drop(columns=cols_to_drop)
-                    available_covs = [c for c in available_covs if c not in cols_to_drop]
+                    available_covs = [
+                        c for c in available_covs if c not in cols_to_drop
+                    ]
 
                 if df_cov.empty or len(available_covs) == 0:
-                    logger.warning("No valid covariate columns remaining after removing all-NaN features")
+                    logger.warning(
+                        "No valid covariate columns remaining after removing all-NaN features"
+                    )
                 else:
                     # Forward fill missing values
                     if fill_missing:
                         df_cov = df_cov.ffill()
 
                     # Only drop rows where ALL remaining covariates are NaN (not just ANY NaN)
-                    df_cov = df_cov.dropna(how='all')
+                    df_cov = df_cov.dropna(how="all")
 
                     if df_cov.empty:
-                        logger.warning("No valid covariate data after handling missing values")
+                        logger.warning(
+                            "No valid covariate data after handling missing values"
+                        )
                     else:
                         cov_ts = TimeSeries.from_dataframe(
                             df_cov,
@@ -673,8 +698,7 @@ class StatefulFeatureEngineer:
         self.warmup_period = data.get("warmup_period", 200)
 
         logger.info(
-            f"Loaded feature statistics from {path} "
-            f"({len(self.feature_list)} features)"
+            f"Loaded feature statistics from {path} ({len(self.feature_list)} features)"
         )
 
     def check_data_leakage(
@@ -695,10 +719,11 @@ class StatefulFeatureEngineer:
         Returns:
             True if no leakage detected, False otherwise
         """
-        if timestamp_col not in train_df.columns or timestamp_col not in test_df.columns:
-            logger.warning(
-                f"Cannot check leakage: '{timestamp_col}' column not found"
-            )
+        if (
+            timestamp_col not in train_df.columns
+            or timestamp_col not in test_df.columns
+        ):
+            logger.warning(f"Cannot check leakage: '{timestamp_col}' column not found")
             return True
 
         train_max = train_df[timestamp_col].max()
@@ -712,7 +737,5 @@ class StatefulFeatureEngineer:
             )
             return False
 
-        logger.info(
-            f"No data leakage: Train ends {train_max}, Test starts {test_min}"
-        )
+        logger.info(f"No data leakage: Train ends {train_max}, Test starts {test_min}")
         return True

@@ -36,7 +36,7 @@
 ## What's NOT Implemented Yet
 
 **Not in Phase 1 (Core System)**:
-❌ AutoML (auto-sklearn) - Phase 2
+❌ AutoML - Phase 2
 ❌ Bayesian Tournament - Phase 3
 ❌ Advanced ensembles - Later phases
 

@@ -158,7 +158,7 @@ cd ..
 
 #### Windows Users: Development Command Reference
 
-On Windows, use these commands instead of `uv run` (due to auto-sklearn compatibility issues):
+On Windows, use these commands instead of `uv run` 
 
 ```bash
 # Format code
@@ -174,7 +174,7 @@ On Windows, use these commands instead of `uv run` (due to auto-sklearn compatib
 .venv\Scripts\python.exe -m pytest --cov
 ```
 
-> **Note**: AutoML features (`auto-sklearn`) are not available on Windows. They're part of Phase 2 and will work in WSL or Docker.
+> **Note**: AutoML featurest they're part of Phase 2 and will work in WSL or Docker.
 
 ### Basic Usage
 
@@ -417,7 +417,7 @@ See [context/models.md](context/models.md) for details.
 ## Roadmap
 
 - [x] **Phase 1**: Core system with basic models
-- [ ] **Phase 2**: AutoML with auto-sklearn
+- [ ] **Phase 2**: AutoML
 - [ ] **Phase 3**: Custom Bayesian tournament system
 - [ ] **Phase 4**: FastAPI REST API
 - [ ] **Phase 5**: Real-time streaming predictions

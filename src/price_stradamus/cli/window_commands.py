@@ -9,8 +9,10 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime
 from pathlib import Path
+from typing import cast
 
 import typer
+from darts import TimeSeries
 from loguru import logger
 from rich.console import Console
 from rich.table import Table
@@ -18,10 +20,10 @@ from rich.table import Table
 from price_stradamus.config.constants import FEATURE_WARMUP_PERIOD
 from price_stradamus.config.settings import settings
 from price_stradamus.data.database import DatabaseManager
-from price_stradamus.data.stateful_features import StatefulFeatureEngineer
 from price_stradamus.data.preprocessor import DataPreprocessor
+from price_stradamus.data.stateful_features import StatefulFeatureEngineer
 from price_stradamus.evaluation.metrics import MetricsCalculator
-from price_stradamus.evaluation.walk_forward import DataLeakageChecker, TimeWindow
+from price_stradamus.evaluation.walk_forward import DataLeakageChecker
 from price_stradamus.models.registry import ModelRegistry
 
 console = Console()
@@ -83,7 +85,9 @@ def train_window(
     """
 
     async def _train():
-        console.print("[bold cyan]Training with Time Window (No Data Leakage)[/bold cyan]\n")
+        console.print(
+            "[bold cyan]Training with Time Window (No Data Leakage)[/bold cyan]\n"
+        )
 
         try:
             # Parse dates
@@ -142,7 +146,7 @@ def train_window(
 
             # Convert to Darts TimeSeries
             console.print("Creating time series...")
-            ts = engineer.to_darts_timeseries(df_features, value_cols=["close"])
+            ts = cast(TimeSeries, engineer.to_darts_timeseries(df_features, value_cols=["close"]))
 
             console.print(
                 f"[green][OK] Created time series with {len(ts)} timesteps[/green]"
@@ -280,7 +284,9 @@ def eval_window(
     """
 
     async def _evaluate():
-        console.print("[bold cyan]Evaluating with Time Window (No Data Leakage)[/bold cyan]\n")
+        console.print(
+            "[bold cyan]Evaluating with Time Window (No Data Leakage)[/bold cyan]\n"
+        )
 
         try:
             # Parse dates
@@ -294,7 +300,9 @@ def eval_window(
 
             # Validate dates
             if test_start_dt >= test_end_dt:
-                console.print("[red][ERROR] Error: test-start must be before test-end[/red]")
+                console.print(
+                    "[red][ERROR] Error: test-start must be before test-end[/red]"
+                )
                 raise typer.Exit(1)
 
             # Check model file exists
@@ -312,9 +320,7 @@ def eval_window(
 
                 # ✅ Validate no overlap
                 if test_start_dt <= train_end_dt:
-                    console.print(
-                        "[red][ERROR] DATA LEAKAGE DETECTED![/red]"
-                    )
+                    console.print("[red][ERROR] DATA LEAKAGE DETECTED![/red]")
                     console.print(f"  Training ends:  {train_end_dt}")
                     console.print(f"  Testing starts: {test_start_dt}")
                     console.print(
@@ -356,9 +362,11 @@ def eval_window(
             console.print("Generating features...")
             engineer = StatefulFeatureEngineer(warmup_period=FEATURE_WARMUP_PERIOD)
             df_features = engineer.fit_transform(df)
-            ts = engineer.to_darts_timeseries(df_features, value_cols=["close"])
+            ts = cast(TimeSeries, engineer.to_darts_timeseries(df_features, value_cols=["close"]))
 
-            console.print(f"[green][OK] Created time series with {len(ts)} timesteps[/green]\n")
+            console.print(
+                f"[green][OK] Created time series with {len(ts)} timesteps[/green]\n"
+            )
 
             # Load model
             console.print(f"Loading model from {model_path}...")
@@ -375,10 +383,10 @@ def eval_window(
                     break
 
             if model_name is None or not ModelRegistry.is_registered(model_name):
-                console.print(f"[red][ERROR] Unknown model type in filename: {filename}[/red]")
                 console.print(
-                    f"Available models: {', '.join(registered_models)}"
+                    f"[red][ERROR] Unknown model type in filename: {filename}[/red]"
                 )
+                console.print(f"Available models: {', '.join(registered_models)}")
                 console.print(
                     "[yellow]Hint: Model filename should start with the model name (e.g., xgboost_..., nbeats_...)[/yellow]"
                 )
@@ -400,7 +408,7 @@ def eval_window(
             current_idx = input_length
             while current_idx + output_length <= len(ts):
                 historical = ts[:current_idx]
-                pred = model_instance.predict(n=output_length, series=historical)
+                pred = cast(TimeSeries, model_instance.predict(n=output_length, series=historical))
                 actual = ts[current_idx : current_idx + output_length]
 
                 predictions_list.append(pred.values().flatten())
@@ -475,7 +483,7 @@ def eval_window(
                         # Last resort: convert to numpy array
                         timestamp_arrays.append(np.array(time_slice))
 
-                timestamps = np.concatenate(timestamp_arrays)[:len(all_predictions)]
+                timestamps = np.concatenate(timestamp_arrays)[: len(all_predictions)]
 
                 chart_path = Path(save_chart) if save_chart else None
                 chart_title = f"{model_instance.name.upper()} Evaluation - {test_start_dt.date()} to {test_end_dt.date()}"
