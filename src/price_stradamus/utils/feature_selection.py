@@ -24,12 +24,17 @@ CORE_FEATURES = [
     # Note: All SMAs and most EMAs dropped due to high correlation
     # Kept: ema_7 (short-term)
     "ema_7",  # Short-term trend (responsive)
+    "ema_14",
     # === MOMENTUM (5 features) ===
     "rsi_14",  # Overbought/oversold
     "macd",  # Trend momentum
     "macd_signal",  # MACD crossover signal
     "macd_hist",  # MACD histogram (momentum strength)
     "roc_10",  # Rate of change (momentum_XX dropped - corr=1.0 with roc_XX)
+    "stoch_k",
+    "stoch_d",
+    "momentum_5",
+    "momentum_10",
     # === VOLATILITY (4 features) ===
     "atr_14",  # Average true range
     "std_20",  # Standard deviation (bb_width dropped - corr=1.0 with std_20)
@@ -44,6 +49,7 @@ CORE_FEATURES = [
     # Note: typical_price, log_returns, price_change all dropped (corr ~1.0 with returns)
     "high_low_range",  # Daily range
     "returns",  # Simple returns
+    "returns_1",
     # === ADVANCED (2 features) ===
     "adx_14",  # Trend strength
     "supertrend_direction",  # Supertrend signal

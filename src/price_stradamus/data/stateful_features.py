@@ -3,12 +3,16 @@
 This module provides feature engineering that PREVENTS DATA LEAKAGE by:
 1. Fitting statistics (mean, std, etc.) only on training data
 2. Applying same statistics to transform validation/test data
+3. Optional feature selection to reduce dimensionality
 
 CRITICAL: Always use this class instead of FeatureEngineer for training/evaluation
 to ensure your backtesting results match real-world performance.
 
 Example:
-    engineer = StatefulFeatureEngineer(warmup_period=200)
+    from price_stradamus.utils.feature_selection import CORE_FEATURES
+
+    # Use only core features (recommended for dimensionality reduction)
+    engineer = StatefulFeatureEngineer(warmup_period=200, feature_cols=CORE_FEATURES)
 
     # Fit on training data ONLY
     train_features = engineer.fit_transform(train_df)
@@ -96,9 +100,13 @@ class StatefulFeatureEngineer:
     - Warmup period is dropped to avoid NaN contamination
 
     Example:
+        # Use all features (default)
         engineer = StatefulFeatureEngineer(warmup_period=200)
+        train_features = engineer.fit_transform(train_df)
 
-        # For training data
+        # Use only CORE_FEATURES (recommended for dimensionality reduction)
+        from price_stradamus.utils.feature_selection import CORE_FEATURES
+        engineer = StatefulFeatureEngineer(warmup_period=200, feature_cols=CORE_FEATURES)
         train_features = engineer.fit_transform(train_df)
 
         # For validation/test data (uses training statistics)
@@ -116,7 +124,11 @@ class StatefulFeatureEngineer:
         feature_list: List of generated feature names.
     """
 
-    def __init__(self, warmup_period: int = 200):
+    def __init__(
+        self,
+        warmup_period: int = 200,
+        feature_cols: list[str] | None = None,
+    ):
         """Initialize stateful feature engineer.
 
         Args:
@@ -124,14 +136,21 @@ class StatefulFeatureEngineer:
                           generation (technical indicators need history).
                           Default 200 covers most indicator lookback windows.
                           Set higher if using SMA_200 or similar long windows.
+            feature_cols: Optional list of feature names to keep after generation.
+                         If None, all generated features are kept.
+                         Base OHLCV columns are always preserved.
+                         Example: Pass CORE_FEATURES to use only core features.
         """
         self.warmup_period = warmup_period
+        self.feature_cols = feature_cols
         self.statistics = FeatureStatistics()
         self.feature_list: list[str] = []
         self._original_columns: set[str] = set()
 
+        mode = f"{len(feature_cols)} selected" if feature_cols else "all"
         logger.info(
-            f"StatefulFeatureEngineer initialized (warmup_period={warmup_period})"
+            f"StatefulFeatureEngineer initialized (warmup_period={warmup_period}, "
+            f"feature_cols={mode})"
         )
 
     def fit(self, df: pd.DataFrame) -> StatefulFeatureEngineer:
@@ -170,6 +189,9 @@ class StatefulFeatureEngineer:
             )
 
         df_features = df_features.iloc[self.warmup_period :].copy()
+
+        # Filter features if feature_cols specified
+        df_features = self._filter_features(df_features)
 
         # Learn statistics from training data
         numeric_cols = df_features.select_dtypes(include=[np.number]).columns
@@ -229,6 +251,9 @@ class StatefulFeatureEngineer:
         # Generate raw features
         df_features = self._generate_raw_features(df)
 
+        # Filter features if feature_cols specified
+        df_features = self._filter_features(df_features)
+
         # Drop warmup period if requested
         if drop_warmup:
             if len(df_features) <= self.warmup_period:
@@ -272,191 +297,309 @@ class StatefulFeatureEngineer:
         if df.empty:
             raise ValueError("DataFrame is empty")
 
+    def _should_generate(self, feature_name: str) -> bool:
+        """Check if a feature should be generated based on feature_cols.
+
+        Args:
+            feature_name: Name of the feature to check
+
+        Returns:
+            True if feature should be generated, False otherwise
+        """
+        # If no filter specified, generate all features
+        if self.feature_cols is None:
+            return True
+
+        # Check if this specific feature is requested
+        return feature_name in self.feature_cols
+
+    def _needs_any(self, *feature_names: str) -> bool:
+        """Check if any of the given features are needed.
+
+        Useful for generating intermediate features that multiple final features depend on.
+
+        Args:
+            *feature_names: Variable number of feature names to check
+
+        Returns:
+            True if any of the features should be generated
+        """
+        if self.feature_cols is None:
+            return True
+
+        return any(fname in self.feature_cols for fname in feature_names)
+
     def _generate_raw_features(self, df: pd.DataFrame) -> pd.DataFrame:
         """Generate raw technical indicators without normalization.
 
         This mirrors FeatureEngineer but returns raw values.
         Features are computed on the provided data only - no future data.
+
+        OPTIMIZATION: Only generates features that are in feature_cols (if specified).
+        This significantly reduces computation time when using CORE_FEATURES.
         """
         df_features = df.copy()
 
         # === Price features (no leakage - uses only current/past) ===
-        df_features["returns"] = (df["close"] - df["open"]) / df["open"]
-        df_features["log_returns"] = np.log(df["close"] / df["close"].shift(1))
-        df_features["price_change"] = df["close"].diff()
-        df_features["price_change_pct"] = df["close"].pct_change()
-        df_features["high_low_range"] = df["high"] - df["low"]
-        df_features["close_open_range"] = df["close"] - df["open"]
-        df_features["typical_price"] = (df["high"] + df["low"] + df["close"]) / 3
+        if self._should_generate("returns"):
+            df_features["returns"] = (df["close"] - df["open"]) / df["open"]
+
+        # log_returns needed for hist_volatility_20
+        if self._needs_any("log_returns", "hist_volatility_20"):
+            df_features["log_returns"] = np.log(df["close"] / df["close"].shift(1))
+
+        if self._should_generate("price_change"):
+            df_features["price_change"] = df["close"].diff()
+
+        if self._should_generate("price_change_pct"):
+            df_features["price_change_pct"] = df["close"].pct_change()
+
+        if self._should_generate("high_low_range"):
+            df_features["high_low_range"] = df["high"] - df["low"]
+
+        if self._should_generate("close_open_range"):
+            df_features["close_open_range"] = df["close"] - df["open"]
+
+        if self._should_generate("typical_price"):
+            df_features["typical_price"] = (df["high"] + df["low"] + df["close"]) / 3
 
         # === Forward returns for prediction target ===
         # returns_1 = (close[t+1] - close[t]) / close[t]
         # Shift -1 to get FUTURE return (will be dropped during dropna to avoid leakage)
-        df_features["returns_1"] = (
-            df["close"].pct_change().shift(-1)
-        )  # Single-step return
-        df_features["returns_5"] = (
-            df["close"].shift(-5) / df["close"] - 1
-        )  # 5-step cumulative return
+        if self._should_generate("returns_1"):
+            df_features["returns_1"] = (
+                df["close"].pct_change().shift(-1)
+            )  # Single-step return
+
+        if self._should_generate("returns_5"):
+            df_features["returns_5"] = (
+                df["close"].shift(-5) / df["close"] - 1
+            )  # 5-step cumulative return
 
         # === Moving averages (rolling - uses only past data) ===
+        # Only generate requested SMAs
         for period in TECHNICAL_INDICATORS["sma_periods"]:
-            df_features[f"sma_{period}"] = ta.sma(df["close"], length=period)
+            if self._should_generate(f"sma_{period}"):
+                df_features[f"sma_{period}"] = ta.sma(df["close"], length=period)
 
+        # Only generate requested EMAs
         for period in TECHNICAL_INDICATORS["ema_periods"]:
-            df_features[f"ema_{period}"] = ta.ema(df["close"], length=period)
+            if self._should_generate(f"ema_{period}"):
+                df_features[f"ema_{period}"] = ta.ema(df["close"], length=period)
 
         # VWAP
-        df_features["vwap"] = ta.vwap(df["high"], df["low"], df["close"], df["volume"])
+        if self._should_generate("vwap"):
+            df_features["vwap"] = ta.vwap(
+                df["high"], df["low"], df["close"], df["volume"]
+            )
 
         # === Momentum indicators ===
         rsi_period = TECHNICAL_INDICATORS["rsi_period"]
-        df_features[f"rsi_{rsi_period}"] = ta.rsi(df["close"], length=rsi_period)
+        if self._should_generate(f"rsi_{rsi_period}"):
+            df_features[f"rsi_{rsi_period}"] = ta.rsi(df["close"], length=rsi_period)
 
-        # MACD
-        macd_config = TECHNICAL_INDICATORS["macd"]
-        macd = ta.macd(
-            df["close"],
-            fast=macd_config["fast"],
-            slow=macd_config["slow"],
-            signal=macd_config["signal"],
-        )
-        if macd is not None:
-            macd_cols = macd.columns.tolist()
-            for col in macd_cols:
-                if col.startswith("MACD_") and not col.startswith(("MACDs_", "MACDh_")):
-                    df_features["macd"] = macd[col]
-                elif col.startswith("MACDs_"):
-                    df_features["macd_signal"] = macd[col]
-                elif col.startswith("MACDh_"):
-                    df_features["macd_hist"] = macd[col]
+        # MACD - only compute if any MACD feature is needed
+        if self._needs_any("macd", "macd_signal", "macd_hist"):
+            macd_config = TECHNICAL_INDICATORS["macd"]
+            macd = ta.macd(
+                df["close"],
+                fast=macd_config["fast"],
+                slow=macd_config["slow"],
+                signal=macd_config["signal"],
+            )
+            if macd is not None:
+                macd_cols = macd.columns.tolist()
+                for col in macd_cols:
+                    if col.startswith("MACD_") and not col.startswith(
+                        ("MACDs_", "MACDh_")
+                    ):
+                        if self._should_generate("macd"):
+                            df_features["macd"] = macd[col]
+                    elif col.startswith("MACDs_"):
+                        if self._should_generate("macd_signal"):
+                            df_features["macd_signal"] = macd[col]
+                    elif col.startswith("MACDh_"):
+                        if self._should_generate("macd_hist"):
+                            df_features["macd_hist"] = macd[col]
 
-        # Stochastic
-        stoch_config = TECHNICAL_INDICATORS["stochastic"]
-        stoch = ta.stoch(
-            df["high"],
-            df["low"],
-            df["close"],
-            k=stoch_config["k"],
-            d=stoch_config["d"],
-        )
-        if stoch is not None:
-            stoch_cols = stoch.columns.tolist()
-            for col in stoch_cols:
-                if col.startswith("STOCHk_"):
-                    df_features["stoch_k"] = stoch[col]
-                elif col.startswith("STOCHd_"):
-                    df_features["stoch_d"] = stoch[col]
+        # Stochastic - only compute if any stochastic feature is needed
+        if self._needs_any("stoch_k", "stoch_d"):
+            stoch_config = TECHNICAL_INDICATORS["stochastic"]
+            stoch = ta.stoch(
+                df["high"],
+                df["low"],
+                df["close"],
+                k=stoch_config["k"],
+                d=stoch_config["d"],
+            )
+            if stoch is not None:
+                stoch_cols = stoch.columns.tolist()
+                for col in stoch_cols:
+                    if col.startswith("STOCHk_"):
+                        if self._should_generate("stoch_k"):
+                            df_features["stoch_k"] = stoch[col]
+                    elif col.startswith("STOCHd_"):
+                        if self._should_generate("stoch_d"):
+                            df_features["stoch_d"] = stoch[col]
 
-        # ROC
+        # ROC - only generate requested periods
         for period in TECHNICAL_INDICATORS["roc_periods"]:
-            df_features[f"roc_{period}"] = ta.roc(df["close"], length=period)
+            if self._should_generate(f"roc_{period}"):
+                df_features[f"roc_{period}"] = ta.roc(df["close"], length=period)
 
-        # Momentum
+        # Momentum - only generate requested periods
         for period in TECHNICAL_INDICATORS["momentum_periods"]:
-            df_features[f"momentum_{period}"] = ta.mom(df["close"], length=period)
+            if self._should_generate(f"momentum_{period}"):
+                df_features[f"momentum_{period}"] = ta.mom(df["close"], length=period)
 
         # CCI
         cci_period = TECHNICAL_INDICATORS["cci_period"]
-        df_features[f"cci_{cci_period}"] = ta.cci(
-            df["high"], df["low"], df["close"], length=cci_period
-        )
+        if self._should_generate(f"cci_{cci_period}"):
+            df_features[f"cci_{cci_period}"] = ta.cci(
+                df["high"], df["low"], df["close"], length=cci_period
+            )
 
         # Williams %R
         willr_period = TECHNICAL_INDICATORS["willr_period"]
-        df_features[f"willr_{willr_period}"] = ta.willr(
-            df["high"], df["low"], df["close"], length=willr_period
-        )
+        if self._should_generate(f"willr_{willr_period}"):
+            df_features[f"willr_{willr_period}"] = ta.willr(
+                df["high"], df["low"], df["close"], length=willr_period
+            )
 
         # === Volatility indicators ===
         atr_period = TECHNICAL_INDICATORS["atr_period"]
-        df_features[f"atr_{atr_period}"] = ta.atr(
-            df["high"], df["low"], df["close"], length=atr_period
-        )
+        if self._should_generate(f"atr_{atr_period}"):
+            df_features[f"atr_{atr_period}"] = ta.atr(
+                df["high"], df["low"], df["close"], length=atr_period
+            )
 
-        # Bollinger Bands
-        bb_config = TECHNICAL_INDICATORS["bollinger_bands"]
-        bbands = ta.bbands(
-            df["close"], length=bb_config["period"], std=bb_config["std"]
-        )
-        if bbands is not None:
-            bb_cols = bbands.columns.tolist()
-            for col in bb_cols:
-                if col.startswith("BBU_"):
-                    df_features["bb_upper"] = bbands[col]
-                elif col.startswith("BBM_"):
-                    df_features["bb_middle"] = bbands[col]
-                elif col.startswith("BBL_"):
-                    df_features["bb_lower"] = bbands[col]
+        # Bollinger Bands - only compute if any BB feature is needed
+        # Note: bb_percent depends on bb_upper and bb_lower
+        if self._needs_any(
+            "bb_upper", "bb_middle", "bb_lower", "bb_width", "bb_percent"
+        ):
+            bb_config = TECHNICAL_INDICATORS["bollinger_bands"]
+            bbands = ta.bbands(
+                df["close"], length=bb_config["period"], std=bb_config["std"]
+            )
+            if bbands is not None:
+                bb_cols = bbands.columns.tolist()
+                for col in bb_cols:
+                    if col.startswith("BBU_"):
+                        df_features["bb_upper"] = bbands[col]
+                    elif col.startswith("BBM_"):
+                        if self._should_generate("bb_middle"):
+                            df_features["bb_middle"] = bbands[col]
+                    elif col.startswith("BBL_"):
+                        df_features["bb_lower"] = bbands[col]
 
-            if "bb_upper" in df_features.columns and "bb_lower" in df_features.columns:
-                df_features["bb_width"] = (
-                    df_features["bb_upper"] - df_features["bb_lower"]
-                )
-                denom = df_features["bb_upper"] - df_features["bb_lower"]
-                df_features["bb_percent"] = (
-                    df["close"] - df_features["bb_lower"]
-                ) / denom
+                if (
+                    "bb_upper" in df_features.columns
+                    and "bb_lower" in df_features.columns
+                ):
+                    if self._should_generate("bb_width"):
+                        df_features["bb_width"] = (
+                            df_features["bb_upper"] - df_features["bb_lower"]
+                        )
+                    if self._should_generate("bb_percent"):
+                        denom = df_features["bb_upper"] - df_features["bb_lower"]
+                        df_features["bb_percent"] = (
+                            df["close"] - df_features["bb_lower"]
+                        ) / denom
 
-        # Rolling std
+        # Rolling std - only generate requested periods
         for period in [10, 20, 30]:
-            df_features[f"std_{period}"] = df["close"].rolling(window=period).std()
+            if self._should_generate(f"std_{period}"):
+                df_features[f"std_{period}"] = df["close"].rolling(window=period).std()
 
-        # Historical volatility
-        df_features["hist_volatility_20"] = df_features["log_returns"].rolling(
-            window=20
-        ).std() * np.sqrt(252 * 24 * 60)
+        # Historical volatility - requires log_returns
+        if self._should_generate("hist_volatility_20"):
+            # Ensure log_returns exists (already generated if needed above)
+            if "log_returns" in df_features.columns:
+                df_features["hist_volatility_20"] = df_features["log_returns"].rolling(
+                    window=20
+                ).std() * np.sqrt(252 * 24 * 60)
 
         # === Volume indicators ===
-        df_features["obv"] = ta.obv(df["close"], df["volume"])
+        if self._should_generate("obv"):
+            df_features["obv"] = ta.obv(df["close"], df["volume"])
 
+        # Volume SMAs - only generate if needed
         for period in [10, 20, 30]:
-            df_features[f"volume_sma_{period}"] = ta.sma(df["volume"], length=period)
+            if self._should_generate(f"volume_sma_{period}"):
+                df_features[f"volume_sma_{period}"] = ta.sma(
+                    df["volume"], length=period
+                )
 
-        df_features["volume_change"] = df["volume"].diff()
-        df_features["volume_change_pct"] = df["volume"].pct_change()
-        df_features["volume_ratio"] = (
-            df["volume"] / df["volume"].rolling(window=20).mean()
-        )
-        df_features["volume_price_trend"] = ta.pvt(df["close"], df["volume"])
+        if self._should_generate("volume_change"):
+            df_features["volume_change"] = df["volume"].diff()
+
+        if self._should_generate("volume_change_pct"):
+            df_features["volume_change_pct"] = df["volume"].pct_change()
+
+        if self._should_generate("volume_ratio"):
+            df_features["volume_ratio"] = (
+                df["volume"] / df["volume"].rolling(window=20).mean()
+            )
+
+        if self._should_generate("volume_price_trend"):
+            df_features["volume_price_trend"] = ta.pvt(df["close"], df["volume"])
 
         # === Trend indicators ===
         adx_period = TECHNICAL_INDICATORS["adx_period"]
-        adx_result = ta.adx(df["high"], df["low"], df["close"], length=adx_period)
-        if adx_result is not None:
-            adx_cols = adx_result.columns.tolist()
-            for col in adx_cols:
-                if col.startswith("ADX_"):
-                    df_features[f"adx_{adx_period}"] = adx_result[col]
-                elif col.startswith("DMP_"):
-                    df_features[f"dmp_{adx_period}"] = adx_result[col]
-                elif col.startswith("DMN_"):
-                    df_features[f"dmn_{adx_period}"] = adx_result[col]
+        # ADX - only compute if any ADX feature is needed
+        if self._needs_any(
+            f"adx_{adx_period}", f"dmp_{adx_period}", f"dmn_{adx_period}"
+        ):
+            adx_result = ta.adx(df["high"], df["low"], df["close"], length=adx_period)
+            if adx_result is not None:
+                adx_cols = adx_result.columns.tolist()
+                for col in adx_cols:
+                    if col.startswith("ADX_"):
+                        if self._should_generate(f"adx_{adx_period}"):
+                            df_features[f"adx_{adx_period}"] = adx_result[col]
+                    elif col.startswith("DMP_"):
+                        if self._should_generate(f"dmp_{adx_period}"):
+                            df_features[f"dmp_{adx_period}"] = adx_result[col]
+                    elif col.startswith("DMN_"):
+                        if self._should_generate(f"dmn_{adx_period}"):
+                            df_features[f"dmn_{adx_period}"] = adx_result[col]
 
-        # Aroon
+        # Aroon - only compute if any Aroon feature is needed
         aroon_period = TECHNICAL_INDICATORS["aroon_period"]
-        aroon = ta.aroon(df["high"], df["low"], length=aroon_period)
-        if aroon is not None:
-            aroon_cols = aroon.columns.tolist()
-            for col in aroon_cols:
-                if col.startswith("AROONU_"):
-                    df_features[f"aroon_up_{aroon_period}"] = aroon[col]
-                elif col.startswith("AROOND_"):
-                    df_features[f"aroon_down_{aroon_period}"] = aroon[col]
-                elif col.startswith("AROONOSC_"):
-                    df_features[f"aroon_osc_{aroon_period}"] = aroon[col]
+        if self._needs_any(
+            f"aroon_up_{aroon_period}",
+            f"aroon_down_{aroon_period}",
+            f"aroon_osc_{aroon_period}",
+        ):
+            aroon = ta.aroon(df["high"], df["low"], length=aroon_period)
+            if aroon is not None:
+                aroon_cols = aroon.columns.tolist()
+                for col in aroon_cols:
+                    if col.startswith("AROONU_"):
+                        if self._should_generate(f"aroon_up_{aroon_period}"):
+                            df_features[f"aroon_up_{aroon_period}"] = aroon[col]
+                    elif col.startswith("AROOND_"):
+                        if self._should_generate(f"aroon_down_{aroon_period}"):
+                            df_features[f"aroon_down_{aroon_period}"] = aroon[col]
+                    elif col.startswith("AROONOSC_"):
+                        if self._should_generate(f"aroon_osc_{aroon_period}"):
+                            df_features[f"aroon_osc_{aroon_period}"] = aroon[col]
 
-        # Supertrend
-        supertrend = ta.supertrend(
-            df["high"], df["low"], df["close"], length=10, multiplier=3
-        )
-        if supertrend is not None:
-            st_cols = supertrend.columns.tolist()
-            for col in st_cols:
-                if col.startswith("SUPERT_") and not col.startswith("SUPERTd_"):
-                    df_features["supertrend"] = supertrend[col]
-                elif col.startswith("SUPERTd_"):
-                    df_features["supertrend_direction"] = supertrend[col]
+        # Supertrend - only compute if any Supertrend feature is needed
+        if self._needs_any("supertrend", "supertrend_direction"):
+            supertrend = ta.supertrend(
+                df["high"], df["low"], df["close"], length=10, multiplier=3
+            )
+            if supertrend is not None:
+                st_cols = supertrend.columns.tolist()
+                for col in st_cols:
+                    if col.startswith("SUPERT_") and not col.startswith("SUPERTd_"):
+                        if self._should_generate("supertrend"):
+                            df_features["supertrend"] = supertrend[col]
+                    elif col.startswith("SUPERTd_"):
+                        if self._should_generate("supertrend_direction"):
+                            df_features["supertrend_direction"] = supertrend[col]
 
         return df_features
 
@@ -488,6 +631,61 @@ class StatefulFeatureEngineer:
                 df_normalized[col] = df_normalized[col].clip(z_p1, z_p99)
 
         return df_normalized
+
+    def _filter_features(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Filter DataFrame to keep only specified features plus base OHLCV columns.
+
+        Args:
+            df: DataFrame with all generated features
+
+        Returns:
+            DataFrame with filtered features
+        """
+        if self.feature_cols is None:
+            # No filtering - return all columns
+            return df
+
+        # Always keep base OHLCV columns
+        base_cols = [
+            "timestamp",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "quote_volume",
+            "num_trades",
+        ]
+        cols_to_keep = [col for col in base_cols if col in df.columns]
+
+        # Add requested feature columns
+        missing_features = []
+        for col in self.feature_cols:
+            if col in df.columns:
+                cols_to_keep.append(col)
+            else:
+                missing_features.append(col)
+
+        if missing_features:
+            logger.warning(
+                f"Requested features not found: {missing_features}. "
+                f"These features may not have been generated or may have been dropped."
+            )
+
+        # Log filtering results
+        total_features = len([c for c in df.columns if c not in base_cols])
+        kept_features = len([c for c in cols_to_keep if c not in base_cols])
+        print(df.columns)
+        print(cols_to_keep)
+        logger.info(
+            f"Feature filtering: keeping {kept_features}/{total_features} features "
+            f"(+ {len([c for c in cols_to_keep if c in base_cols])} base columns)"
+        )
+
+        # Return filtered DataFrame (cols_to_keep is always a list, so result is always DataFrame)
+        result = df[cols_to_keep]
+        assert isinstance(result, pd.DataFrame)  # Type narrowing for pyright
+        return result
 
     def add_lag_features(
         self,
