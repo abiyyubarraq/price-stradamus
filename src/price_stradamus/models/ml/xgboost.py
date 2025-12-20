@@ -5,7 +5,6 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Self
 
-import torch
 from darts import TimeSeries
 from darts.models import XGBModel as DartsXGBModel
 from loguru import logger
@@ -134,9 +133,12 @@ class XGBoostModel(BaseModel):
             f"(validation: {len(val_data) if val_data else 0} timesteps)"
         )
 
-        # Check GPU availability
-        tree_method = "gpu_hist" if torch.cuda.is_available() else "auto"
-        logger.info(f"Using tree_method: {tree_method}")
+        # Check GPU availability for XGBoost (not PyTorch CUDA!)
+        from price_stradamus.utils.gpu_utils import get_recommended_xgboost_tree_method
+
+        tree_method = get_recommended_xgboost_tree_method()
+        device = "GPU" if tree_method == "gpu_hist" else "CPU"
+        logger.info(f"Using tree_method: {tree_method} ({device})")
 
         # Get additional kwargs
         verbose = kwargs.get("verbose", False)
@@ -366,6 +368,11 @@ class XGBoostModel(BaseModel):
         if not self.is_fitted:
             raise ValueError("Model not fitted. Call fit() first.")
 
+        from price_stradamus.utils.gpu_utils import check_xgboost_gpu
+
+        gpu_available = check_xgboost_gpu()
+        tree_method = "gpu_hist (GPU)" if gpu_available else "hist (CPU)"
+
         summary = [
             f"XGBoost Model: {self.name}",
             "=" * 50,
@@ -383,7 +390,7 @@ class XGBoostModel(BaseModel):
             f"  Subsample: {self.subsample}",
             f"  Column subsample: {self.colsample_bytree}",
             "",
-            f"Tree method: {'gpu_hist (GPU)' if torch.cuda.is_available() else 'auto (CPU)'}",
+            f"Tree method: {tree_method}",
             "=" * 50,
         ]
 
