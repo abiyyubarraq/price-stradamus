@@ -227,9 +227,19 @@ def get_recommended_xgboost_tree_method() -> Literal["gpu_hist", "hist"]:
 
     Returns:
         "gpu_hist" if GPU available, "hist" (CPU) otherwise
+
+    Note: On Windows, pip/uv install of xgboost typically does NOT include GPU support.
+          Use conda to get GPU-enabled xgboost: conda install -c conda-forge py-xgboost-gpu
     """
     if check_xgboost_gpu():
         return "gpu_hist"
+
+    # Log info about why GPU is not available
+    logger.info(
+        "XGBoost GPU not available. Using CPU (hist). "
+        "On Windows, install with conda for GPU support: "
+        "conda install -c conda-forge py-xgboost-gpu"
+    )
     return "hist"
 
 
