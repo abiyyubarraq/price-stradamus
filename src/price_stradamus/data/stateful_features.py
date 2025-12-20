@@ -675,8 +675,6 @@ class StatefulFeatureEngineer:
         # Log filtering results
         total_features = len([c for c in df.columns if c not in base_cols])
         kept_features = len([c for c in cols_to_keep if c not in base_cols])
-        print(df.columns)
-        print(cols_to_keep)
         logger.info(
             f"Feature filtering: keeping {kept_features}/{total_features} features "
             f"(+ {len([c for c in cols_to_keep if c in base_cols])} base columns)"
