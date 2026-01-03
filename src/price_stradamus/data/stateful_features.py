@@ -363,6 +363,20 @@ class StatefulFeatureEngineer:
         if self._should_generate("typical_price"):
             df_features["typical_price"] = (df["high"] + df["low"] + df["close"]) / 3
 
+        # === Temporal features (seasonality) ===
+        # Day of week (0=Monday, 6=Sunday) for capturing weekly patterns
+        if self._should_generate("day_of_week"):
+            if "timestamp" in df.columns:
+                # Ensure timestamp is datetime
+                if not pd.api.types.is_datetime64_any_dtype(df["timestamp"]):
+                    df_timestamp = pd.to_datetime(df["timestamp"])
+                else:
+                    df_timestamp = df["timestamp"]
+                df_features["day_of_week"] = df_timestamp.dt.dayofweek
+            else:
+                # If using DatetimeIndex
+                df_features["day_of_week"] = df.index.dayofweek
+
         # === Forward returns for prediction target ===
         # returns_1 = (close[t+1] - close[t]) / close[t]
         # Shift -1 to get FUTURE return (will be dropped during dropna to avoid leakage)

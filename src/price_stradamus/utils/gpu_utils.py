@@ -24,11 +24,10 @@ def check_xgboost_gpu() -> bool:
         True if XGBoost has GPU support, False otherwise
     """
     try:
-        import xgboost as xgb
-
         # Try to create a DMatrix and train a small model with gpu_hist
         # This is the most reliable way to check GPU support
         import numpy as np
+        import xgboost as xgb
 
         # Create tiny dummy dataset
         X = np.random.rand(10, 5)

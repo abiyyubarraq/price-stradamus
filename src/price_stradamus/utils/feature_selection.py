@@ -17,8 +17,10 @@ from sklearn.feature_selection import mutual_info_regression
 #
 # Selection criteria:
 # 1. All features have <0.95 correlation with each other
-# 2. Cover all aspects: trend, momentum, volatility, volume, price action
+# 2. Cover all aspects: trend, momentum, volatility, volume, price action, seasonality
 # 3. Proven effective in financial ML literature
+#
+# Total: 25 features (updated with day_of_week for weekly seasonality)
 CORE_FEATURES = [
     # === TREND (2 features) ===
     # Note: All SMAs and most EMAs dropped due to high correlation
@@ -50,6 +52,8 @@ CORE_FEATURES = [
     "high_low_range",  # Daily range
     "returns",  # Simple returns
     "returns_1",
+    # === TEMPORAL (1 feature) ===
+    "day_of_week",  # Day of week (0=Monday, 6=Sunday) for weekly seasonality
     # === ADVANCED (2 features) ===
     "adx_14",  # Trend strength
     "supertrend_direction",  # Supertrend signal
