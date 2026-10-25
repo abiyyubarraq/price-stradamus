@@ -1,6 +1,6 @@
 # Multi-stage build for Price Stradamus
 # Stage 1: Builder
-FROM python:3.13.9-slim as builder
+FROM python:3.13.17-slim as builder
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -27,7 +27,7 @@ RUN uv venv .venv
 RUN uv pip install -e ".[dev]"
 
 # Stage 2: Runtime
-FROM python:3.13.9-slim
+FROM python:3.13.17-slim
 
 # Install runtime dependencies only
 RUN apt-get update && apt-get install -y \
